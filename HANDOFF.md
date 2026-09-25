@@ -20,6 +20,12 @@ These came from Claude, not from Mike. Confirm before you build on them.
   4. Photos, problem reports, optional upload to OSM with the user's own account.
 
 ## 3. Current state
+### Repo setup (task 1) — DONE
+- `.gitignore` for macOS, Xcode, and SwiftPM. It ignores `*.xcodeproj/` because XcodeGen (task 2) generates the project.
+- `.github/workflows/pages.yml` deploys `tools/explorer/` to GitHub Pages on each push to `main` that changes the explorer. You can also run it by hand (workflow_dispatch).
+- Pages URL: https://mikeheffler.github.io/Oasis/
+- Mike must set Settings > Pages > Source to "GitHub Actions" one time.
+
 ### app/WaterFinder (phase 1 draft) — NOT COMPILED
 Written in chat with no Xcode. Expect small build errors.
 - `Models/WaterSpot.swift` — `SpotKind`, `WaterSpot`, OSM tag classification.
