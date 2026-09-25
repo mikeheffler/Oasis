@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Water points explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{--ink:#14212B;--ink-2:#4A5A67;--paper:#F6F8F9;--card:#FFFFFF;--line:#DCE3E8;--water:#1668C7;--water-deep:#0B4F9C;--amber:#C98210;--alert:#C0392B}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:'Public Sans',system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--ink);background:var(--paper);font-size:16px;line-height:1.5}
+#app{display:grid;grid-template-columns:372px 1fr;height:100%}
+#panel{overflow-y:auto;background:var(--paper);border-right:1px solid var(--line)}
+#map{height:100%;background:#E8EDF0}
+.head{position:relative;padding:24px 24px 16px}
+h1{font-size:26px;line-height:1.15;font-weight:700;margin:0;letter-spacing:-.01em}
+.sub{margin:6px 0 0;color:var(--ink-2);font-size:15px}
+section{padding:16px 24px;border-top:1px solid var(--line)}
+h2{font-size:16px;font-weight:600;margin:0 0 10px}
+.row{display:flex;gap:8px;align-items:center}
+input[type=search],select{font:inherit;font-size:15px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);min-width:0}
+input[type=search]{flex:1}
+.btn{font:inherit;font-size:15px;font-weight:600;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:#B8C4CC}
+.btn.primary{background:var(--water);border-color:var(--water);color:#fff;width:100%}
+.btn.primary:hover{background:var(--water-deep)}
+.btn:focus-visible,.chip:focus-visible,input:focus-visible,select:focus-visible,.link-btn:focus-visible{outline:3px solid #8DB9EA;outline-offset:2px}
+.file{position:relative;overflow:hidden}
+.file input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.check{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:15px;color:var(--ink-2)}
+.status{margin:10px 0 0;font-size:15px;color:var(--ink-2);min-height:1.5em}
+.status.err{color:var(--alert);font-weight:500}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:14px;font-weight:500;padding:6px 12px 6px 10px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.chip[aria-pressed=false]{opacity:.45}
+.chip .n{font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.sw{width:12px;height:12px;border-radius:50%;flex:none}
+.seg{display:inline-flex;margin-top:14px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{font:inherit;font-size:14px;font-weight:500;padding:6px 12px;border:0;background:var(--card);color:var(--ink-2);cursor:pointer}
+.seg button[aria-checked=true]{background:var(--ink);color:#fff}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:14px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.stats{display:grid;grid-template-columns:1fr auto;gap:6px 12px;margin:0;font-size:15px}
+.stats dt{color:var(--ink-2)}
+.stats dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
+.hint{margin:0 0 12px;font-size:15px;color:var(--ink-2)}
+.route-sum{margin:14px 0 0;font-size:15px}
+.route-sum strong{font-size:20px;display:block;line-height:1.3}
+.list{list-style:none;margin:10px 0 0;padding:0}
+.list li+li{border-top:1px solid var(--line)}
+.link-btn{display:grid;grid-template-columns:64px 1fr;gap:8px;width:100%;text-align:left;font:inherit;font-size:14px;padding:8px 0;border:0;background:none;color:var(--ink);cursor:pointer}
+.link-btn:hover .t{text-decoration:underline}
+.link-btn .m{font-variant-numeric:tabular-nums;font-weight:600}
+.link-btn .d{color:var(--ink-2)}
+.gap .m{color:var(--alert)}
+h3{font-size:15px;font-weight:600;margin:16px 0 0}
+#collapse{display:none}
+.leaflet-container{font-family:inherit;font-size:14px}
+.pop-kind{font-size:13px;font-weight:600;color:var(--c)}
+.pop-name{font-size:17px;font-weight:700;margin:2px 0 6px;line-height:1.25}
+.pop-meta{color:var(--ink-2);font-size:13px;margin:4px 0}
+.pop-route{font-weight:600;margin:4px 0}
+.pop-links{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0}
+.pop table{border-collapse:collapse;width:100%;font-size:13px}
+.pop th{text-align:left;font-weight:500;color:var(--ink-2);padding:2px 8px 2px 0;vertical-align:top;word-break:break-all}
+.pop td{padding:2px 0;word-break:break-word}
+.pop summary{cursor:pointer;font-weight:600;margin-top:4px}
+@media (max-width:760px){
+  #app{display:block;position:relative}
+  #map{position:absolute;inset:0}
+  #panel{position:absolute;left:0;right:0;bottom:0;max-height:55vh;z-index:1000;border-right:0;border-top:1px solid var(--line);border-radius:16px 16px 0 0;box-shadow:0 -6px 20px rgba(20,33,43,.14);padding-bottom:env(safe-area-inset-bottom,0px)}
+  #panel.collapsed #panel-body,#panel.collapsed .sub{display:none}
+  .head{padding:16px 20px 12px}
+  h1{font-size:22px}
+  section{padding:14px 20px}
+  #collapse{display:block;position:absolute;right:16px;top:14px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="panel">
+    <header class="head">
+      <h1>Water points</h1>
+      <p class="sub">Public drinking water from OpenStreetMap. Use it to check the data before the app build.</p>
+      <button id="collapse" class="btn" aria-expanded="true" aria-controls="panel-body">Hide</button>
+    </header>
+    <div id="panel-body">
+      <section>
+        <form id="search-form" class="row">
+          <input id="search" type="search" placeholder="Go to a place, e.g. Yountville" aria-label="Go to a place">
+          <button type="submit" class="btn">Go</button>
+        </form>
+      </section>
+      <section>
+        <button id="load" class="btn primary">Load water in this view</button>
+        <label class="check"><input type="checkbox" id="auto" checked> Load when the map moves</label>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+      </section>
+      <section>
+        <h2>Show</h2>
+        <div id="chips" class="chips"></div>
+        <div class="seg" role="radiogroup" aria-label="Color points by">
+          <button type="button" role="radio" data-color="type" aria-checked="true">Color by type</button>
+          <button type="button" role="radio" data-color="age" aria-checked="false">Color by last update</button>
+        </div>
+        <div id="legend" class="legend"></div>
+      </section>
+      <section>
+        <h2>Data quality in this view</h2>
+        <dl id="quality" class="stats"></dl>
+      </section>
+      <section>
+        <h2>Route check</h2>
+        <p class="hint">Load a GPX file from Strava, Ride with GPS, or Garmin. The map shows the water near the route and the longest distances with no water.</p>
+        <div class="row">
+          <label class="btn file">Load GPX file<input type="file" id="gpx" accept=".gpx,application/gpx+xml,application/xml,text/xml"></label>
+          <select id="buffer" aria-label="Distance from route">
+            <option value="0.25">Within 0.25 mi</option>
+            <option value="0.5" selected>Within 0.5 mi</option>
+            <option value="1">Within 1 mi</option>
+          </select>
+        </div>
+        <div id="route-out"></div>
+      </section>
+      <section>
+        <button id="export" class="btn">Download points in view (GeoJSON)</button>
+      </section>
+    </div>
+  </aside>
+  <div id="map" aria-label="Map of water points"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+const TILE = 0.25, MIN_ZOOM_AUTO = 11, MAX_TILES = 16, MI = 1609.344;
+
+const KINDS = {
+  fountain: {label: 'Fountain', fill: '#1668C7', stroke: '#0B4F9C'},
+  tap:      {label: 'Tap or spigot', fill: '#FFFFFF', stroke: '#1668C7'},
+  business: {label: 'Business', fill: '#C98210', stroke: '#8A5806'},
+  other:    {label: 'Other source', fill: '#5E6E7C', stroke: '#3B4852'},
+  excluded: {label: 'Private (app hides)', fill: '#FFFFFF', stroke: '#C0392B'}
+};
+const AGE = [
+  {max: 1, label: 'Under 1 year', fill: '#0B4F9C'},
+  {max: 3, label: '1 to 3 years', fill: '#3F86D1'},
+  {max: 5, label: '3 to 5 years', fill: '#9CC0E6'},
+  {max: Infinity, label: 'Over 5 years', fill: '#E3E8EC'}
+];
+
+const state = {
+  spots: new Map(), markers: new Map(), loadedTiles: new Set(),
+  enabled: new Set(['fountain', 'tap', 'business', 'other']),
+  colorBy: 'type', loading: false, pending: false, route: null, gapLayer: null
+};
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const mi = m => (m / MI).toFixed(1);
+
+/* ---------- Map ---------- */
+const map = L.map('map', {preferCanvas: true}).setView([38.40, -122.36], 11);
+const carto = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  maxZoom: 20, subdomains: 'abcd',
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+}).addTo(map);
+const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+});
+L.control.layers({'Clean map': carto, 'OSM standard (shows businesses)': osm}).addTo(map);
+L.control.scale({imperial: true, metric: false}).addTo(map);
+const locate = L.control({position: 'topleft'});
+locate.onAdd = () => {
+  const d = L.DomUtil.create('div', 'leaflet-bar');
+  d.innerHTML = '<a href="#" role="button" title="Show my location" aria-label="Show my location" style="font-size:20px;line-height:30px">&#9678;</a>';
+  L.DomEvent.disableClickPropagation(d);
+  L.DomEvent.on(d, 'click', e => { L.DomEvent.preventDefault(e); map.locate({setView: true, maxZoom: 15}); });
+  return d;
+};
+locate.addTo(map);
+let meMarker;
+map.on('locationfound', e => {
+  if (meMarker) meMarker.setLatLng(e.latlng);
+  else meMarker = L.circleMarker(e.latlng, {radius: 8, color: '#FFFFFF', weight: 3, fillColor: '#1668C7', fillOpacity: 1}).addTo(map);
+});
+map.on('locationerror', e => setStatus('Could not get your location. ' + e.message, true));
+const renderer = L.canvas({padding: 0.5});
+const routeLayer = L.layerGroup().addTo(map);
+const pointLayer = L.layerGroup().addTo(map);
+
+/* ---------- Data model (same rules as the iOS app) ---------- */
+function classify(t) {
+  const a = t.amenity || '';
+  if (a === 'drinking_water') return 'fountain';
+  if (t.man_made === 'water_tap' || a === 'water_point') return 'tap';
+  if (t['drinking_water:refill'] === 'yes') return 'business';
+  const biz = ['cafe','restaurant','fast_food','pub','bar','fuel','ice_cream','bicycle_rental'];
+  if (t.shop || biz.includes(a)) return 'business';
+  return 'other';
+}
+function toSpot(el) {
+  const lat = el.lat ?? el.center?.lat, lon = el.lon ?? el.center?.lon;
+  if (lat == null || lon == null) return null;
+  const tags = el.tags || {};
+  if (tags.drinking_water === 'no') return null;
+  const excluded = ['private','no','customers'].includes(tags.access);
+  return {id: `${el.type}/${el.id}`, type: el.type, osmId: el.id, lat, lon, tags,
+          kind: excluded ? 'excluded' : classify(tags),
+          timestamp: el.timestamp, user: el.user, version: el.version, _route: null};
+}
+function ageYears(s) {
+  const raw = s.tags.check_date || s.tags['survey:date'] || s.timestamp;
+  const d = raw ? new Date(raw) : null;
+  if (!d || isNaN(d)) return null;
+  return (Date.now() - d.getTime()) / (365.25 * 864e5);
+}
+function fmtDate(ts) {
+  const d = ts ? new Date(ts) : null;
+  return d && !isNaN(d) ? d.toLocaleDateString(undefined, {year: 'numeric', month: 'short'}) : 'unknown';
+}
+
+/* ---------- Overpass ---------- */
+function buildQuery(area, timeout = 60) {
+  return `[out:json][timeout:${timeout}];
+(
+  nwr["amenity"="drinking_water"]["drinking_water"!="no"]${area};
+  nwr["amenity"="water_point"]["drinking_water"!="no"]${area};
+  nwr["drinking_water"="yes"]${area};
+  nwr["drinking_water:refill"="yes"]${area};
+);
+out center meta;`;
+}
+async function overpass(query) {
+  let lastErr;
+  for (const url of OVERPASS) {
+    try {
+      const res = await fetch(url, {method: 'POST', body: 'data=' + encodeURIComponent(query),
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'}});
+      if (res.status === 429) throw new Error('Too many requests to the data server. Wait one minute, then try again.');
+      if (!res.ok) throw new Error(`The data server gave error ${res.status}.`);
+      return await res.json();
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error('Could not reach the data server.');
+}
+async function runQuery(area, timeout) {
+  const data = await overpass(buildQuery(area, timeout));
+  let added = 0;
+  for (const el of data.elements || []) {
+    const s = toSpot(el);
+    if (!s) continue;
+    if (!state.spots.has(s.id)) added++;
+    state.spots.set(s.id, s);
+  }
+  return added;
+}
+
+/* ---------- Load for the current view ---------- */
+function tilesFor(b) {
+  const out = [];
+  for (let x = Math.floor(b.getWest() / TILE); x <= Math.floor(b.getEast() / TILE); x++)
+    for (let y = Math.floor(b.getSouth() / TILE); y <= Math.floor(b.getNorth() / TILE); y++) out.push([x, y]);
+  return out;
+}
+function setStatus(msg, err = false) { const el = $('status'); el.textContent = msg; el.classList.toggle('err', err); }
+
+async function loadView(manual) {
+  if (state.loading) { state.pending = true; return; }
+  if (!manual && map.getZoom() < MIN_ZOOM_AUTO) { setStatus('Zoom in to load automatically, or select Load.'); return; }
+  const missing = tilesFor(map.getBounds()).filter(([x, y]) => !state.loadedTiles.has(`${x},${y}`));
+  if (!missing.length) { setStatus(`${state.spots.size.toLocaleString()} points loaded in total.`); return; }
+  if (missing.length > MAX_TILES) { setStatus('This area is too large. Zoom in, then try again.', true); return; }
+  const xs = missing.map(t => t[0]), ys = missing.map(t => t[1]);
+  const s = Math.min(...ys) * TILE, n = (Math.max(...ys) + 1) * TILE;
+  const w = Math.min(...xs) * TILE, e = (Math.max(...xs) + 1) * TILE;
+  state.loading = true;
+  setStatus('Loading water points…');
+  try {
+    const added = await runQuery(`(${s},${w},${n},${e})`, 60);
+    missing.forEach(([x, y]) => state.loadedTiles.add(`${x},${y}`));
+    setStatus(`Added ${added.toLocaleString()} points. ${state.spots.size.toLocaleString()} loaded in total.`);
+    if (state.route) analyzeRoute();
+    render();
+  } catch (e) {
+    setStatus(e.message, true);
+  } finally {
+    state.loading = false;
+    if (state.pending) { state.pending = false; loadView(false); }
+  }
+}
+
+/* ---------- Rendering ---------- */
+function styleFor(s) {
+  if (state.colorBy === 'age' && s.kind !== 'excluded') {
+    const y = ageYears(s);
+    const b = AGE.find(a => y != null && y < a.max) || AGE[AGE.length - 1];
+    return {radius: 6, fillColor: b.fill, color: '#14212B', weight: 1, fillOpacity: 1};
+  }
+  const k = KINDS[s.kind];
+  const ring = s.kind === 'tap' || s.kind === 'excluded';
+  return {radius: ring ? 5 : 6, fillColor: k.fill, color: k.stroke, weight: ring ? 2.5 : 1.5, fillOpacity: 1};
+}
+function render() {
+  pointLayer.clearLayers();
+  state.markers.clear();
+  for (const s of state.spots.values()) {
+    if (!state.enabled.has(s.kind)) continue;
+    const m = L.circleMarker([s.lat, s.lon], {renderer, ...styleFor(s)});
+    m.bindPopup(() => popupHTML(s), {maxWidth: 320});
+    pointLayer.addLayer(m);
+    state.markers.set(s.id, m);
+  }
+  renderChips();
+  renderLegend();
+  updateStats();
+}
+function popupHTML(s) {
+  const t = s.tags, k = KINDS[s.kind];
+  const rows = Object.keys(t).sort().map(key => `<tr><th>${esc(key)}</th><td>${esc(t[key])}</td></tr>`).join('');
+  const route = s._route ? `<div class="pop-route">Mile ${mi(s._route.along)} on route, ${mi(s._route.d)} mi off route</div>` : '';
+  const checked = t.check_date || t['survey:date'];
+  return `<div class="pop">
+    <div class="pop-kind" style="--c:${k.stroke === '#FFFFFF' ? '#14212B' : k.stroke}">${esc(k.label)}</div>
+    <div class="pop-name">${esc(t.name || 'No name')}</div>
+    ${route}
+    <div class="pop-meta">Last check: ${checked ? esc(checked) : 'not recorded'}</div>
+    <div class="pop-meta">Last edit: ${fmtDate(s.timestamp)} by ${esc(s.user || 'unknown')} (version ${esc(s.version ?? '?')})</div>
+    <div class="pop-links">
+      <a href="https://www.openstreetmap.org/${s.type}/${s.osmId}" target="_blank" rel="noopener">Open in OSM</a>
+      <a href="https://www.openstreetmap.org/edit?${s.type}=${s.osmId}" target="_blank" rel="noopener">Edit</a>
+      <a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${s.lat},${s.lon}" target="_blank" rel="noopener">Street View</a>
+    </div>
+    <details><summary>All tags (${Object.keys(t).length})</summary><table>${rows}</table></details>
+  </div>`;
+}
+function spotsInView() {
+  const b = map.getBounds();
+  return [...state.spots.values()].filter(s => b.contains([s.lat, s.lon]));
+}
+function renderChips() {
+  const counts = {};
+  for (const s of spotsInView()) counts[s.kind] = (counts[s.kind] || 0) + 1;
+  $('chips').innerHTML = Object.entries(KINDS).map(([key, k]) =>
+    `<button type="button" class="chip" data-kind="${key}" aria-pressed="${state.enabled.has(key)}">
+      <span class="sw" style="background:${k.fill};border:2px solid ${k.stroke}"></span>${esc(k.label)}
+      <span class="n">${(counts[key] || 0).toLocaleString()}</span></button>`).join('');
+}
+function renderLegend() {
+  $('legend').innerHTML = state.colorBy === 'age'
+    ? AGE.map(a => `<span><span class="sw" style="background:${a.fill};border:1px solid #14212B"></span>${a.label}</span>`).join('')
+      + '<span>Uses the check date if present, or else the last edit.</span>'
+    : '';
+}
+function updateStats() {
+  const list = spotsInView().filter(s => s.kind !== 'excluded' && state.enabled.has(s.kind));
+  const n = list.length;
+  if (!n) { $('quality').innerHTML = '<dt>No points in this view yet.</dt><dd></dd>'; renderChips(); return; }
+  const pct = c => `${c.toLocaleString()} (${Math.round(100 * c / n)}%)`;
+  const has = f => list.filter(f).length;
+  const years = list.map(s => s.timestamp ? new Date(s.timestamp).getFullYear() : null).filter(Boolean).sort((a, b) => a - b);
+  const median = years.length ? years[Math.floor(years.length / 2)] : '—';
+  $('quality').innerHTML = [
+    ['Points shown', n.toLocaleString()],
+    ['With a check date', pct(has(s => s.tags.check_date || s.tags['survey:date']))],
+    ['Bottle filler tagged', pct(has(s => s.tags.bottle === 'yes'))],
+    ['Seasonal tagged', pct(has(s => s.tags.seasonal && s.tags.seasonal !== 'no'))],
+    ['With a name', pct(has(s => s.tags.name))],
+    ['Median last edit year', median]
+  ].map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+  renderChips();
+}
+
+/* ---------- Route check ---------- */
+function hav(a, b) {
+  const R = 6371008.8, r = Math.PI / 180;
+  const dLat = (b[0] - a[0]) * r, dLon = (b[1] - a[1]) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+function parseGPX(text) {
+  const doc = new DOMParser().parseFromString(text, 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length) throw new Error('This file is not a valid GPX file.');
+  let pts = [...doc.getElementsByTagNameNS('*', 'trkpt')];
+  if (!pts.length) pts = [...doc.getElementsByTagNameNS('*', 'rtept')];
+  const coords = pts.map(p => [parseFloat(p.getAttribute('lat')), parseFloat(p.getAttribute('lon'))])
+    .filter(c => isFinite(c[0]) && isFinite(c[1]));
+  if (coords.length < 2) throw new Error('The file has no track points.');
+  const nameEl = doc.getElementsByTagNameNS('*', 'name')[0];
+  return {coords, name: nameEl ? nameEl.textContent.trim() : ''};
+}
+function buildRoute(coords, name) {
+  const cum = [0];
+  for (let i = 1; i < coords.length; i++) cum.push(cum[i - 1] + hav(coords[i - 1], coords[i]));
+  let s = 90, n = -90, w = 180, e = -180;
+  for (const [la, lo] of coords) { s = Math.min(s, la); n = Math.max(n, la); w = Math.min(w, lo); e = Math.max(e, lo); }
+  return {coords, cum, total: cum[cum.length - 1], name, box: {s, n, w, e}, loadedBuffer: 0};
+}
+function project(r, lat, lon) {
+  const kx = 111320 * Math.cos(lat * Math.PI / 180), ky = 110540;
+  let best = {d: Infinity, along: 0};
+  for (let i = 0; i < r.coords.length - 1; i++) {
+    const ax = (r.coords[i][1] - lon) * kx, ay = (r.coords[i][0] - lat) * ky;
+    const bx = (r.coords[i + 1][1] - lon) * kx, by = (r.coords[i + 1][0] - lat) * ky;
+    const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
+    const t = len2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2)) : 0;
+    const d = Math.hypot(ax + t * dx, ay + t * dy);
+    if (d < best.d) best = {d, along: r.cum[i] + t * (r.cum[i + 1] - r.cum[i])};
+  }
+  return best;
+}
+function pointAt(r, dist) {
+  let i = 0;
+  while (i < r.cum.length - 2 && r.cum[i + 1] < dist) i++;
+  const seg = r.cum[i + 1] - r.cum[i], t = seg ? (dist - r.cum[i]) / seg : 0;
+  const a = r.coords[i], b = r.coords[i + 1];
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+}
+function sliceRoute(r, from, to) {
+  const out = [pointAt(r, from)];
+  for (let i = 0; i < r.coords.length; i++) if (r.cum[i] > from && r.cum[i] < to) out.push(r.coords[i]);
+  out.push(pointAt(r, to));
+  return out;
+}
+function samplePoints(r) {
+  let step = 400, pts;
+  do {
+    pts = [r.coords[0]];
+    let last = 0;
+    for (let i = 1; i < r.coords.length; i++) if (r.cum[i] - r.cum[last] >= step) { pts.push(r.coords[i]); last = i; }
+    pts.push(r.coords[r.coords.length - 1]);
+    step *= 1.5;
+  } while (pts.length > 500);
+  return pts;
+}
+const bufferM = () => parseFloat($('buffer').value) * MI;
+
+async function loadRouteData() {
+  const r = state.route, buf = bufferM();
+  if (r.loadedBuffer >= buf) { analyzeRoute(); render(); return; }
+  const coords = samplePoints(r).map(p => `${p[0].toFixed(5)},${p[1].toFixed(5)}`).join(',');
+  state.loading = true;
+  setStatus('Loading water along the route…');
+  try {
+    const added = await runQuery(`(around:${Math.round(buf * 1.15)},${coords})`, 120);
+    r.loadedBuffer = buf;
+    setStatus(`Added ${added.toLocaleString()} points along the route.`);
+  } catch (e) {
+    setStatus(e.message + ' The route check uses only the points loaded before.', true);
+  } finally {
+    state.loading = false;
+  }
+  analyzeRoute();
+  render();
+}
+function analyzeRoute() {
+  const r = state.route;
+  if (!r) return;
+  const buf = bufferM();
+  const padLat = buf / 110540, padLon = buf / (111320 * Math.cos(((r.box.s + r.box.n) / 2) * Math.PI / 180));
+  const stops = [];
+  for (const s of state.spots.values()) {
+    s._route = null;
+    if (s.kind === 'excluded') continue;
+    if (s.lat < r.box.s - padLat || s.lat > r.box.n + padLat || s.lon < r.box.w - padLon || s.lon > r.box.e + padLon) continue;
+    const p = project(r, s.lat, s.lon);
+    if (p.d <= buf) { s._route = p; if (state.enabled.has(s.kind)) stops.push(s); }
+  }
+  stops.sort((a, b) => a._route.along - b._route.along);
+  const marks = [0, ...stops.map(s => s._route.along), r.total];
+  const gaps = [];
+  for (let i = 0; i < marks.length - 1; i++) gaps.push({from: marks[i], to: marks[i + 1], len: marks[i + 1] - marks[i]});
+  gaps.sort((a, b) => b.len - a.len);
+  state.routeResult = {stops, gaps: gaps.slice(0, 3)};
+  renderRoute();
+}
+function renderRoute() {
+  const r = state.route, {stops, gaps} = state.routeResult;
+  const shown = stops.slice(0, 80);
+  $('route-out').innerHTML = `
+    <p class="route-sum"><strong>${gaps.length ? mi(gaps[0].len) : mi(r.total)} mi</strong>longest distance with no water, on a ${mi(r.total)} mi route${r.name ? ` (${esc(r.name)})` : ''}. ${stops.length} water points within ${$('buffer').value} mi.</p>
+    <h3>Longest gaps</h3>
+    <ul class="list">${gaps.map((g, i) => `<li><button type="button" class="link-btn gap" data-gap="${i}">
+      <span class="m">${mi(g.len)} mi</span><span class="t">From mile ${mi(g.from)} to mile ${mi(g.to)}</span></button></li>`).join('')}</ul>
+    <h3>Water along the route</h3>
+    ${stops.length ? `<ul class="list">${shown.map(s => `<li><button type="button" class="link-btn" data-spot="${esc(s.id)}">
+      <span class="m">Mile ${mi(s._route.along)}</span><span><span class="t">${esc(s.tags.name || KINDS[s.kind].label)}</span>
+      <span class="d"> ${esc(KINDS[s.kind].label.toLowerCase())}, ${mi(s._route.d)} mi off</span></span></button></li>`).join('')}</ul>
+      ${stops.length > shown.length ? `<p class="hint">Showing the first ${shown.length} of ${stops.length}.</p>` : ''}`
+    : '<p class="hint">No water points found near this route. Try a larger distance.</p>'}`;
+}
+function showGap(g) {
+  if (state.gapLayer) routeLayer.removeLayer(state.gapLayer);
+  state.gapLayer = L.polyline(sliceRoute(state.route, g.from, g.to), {color: '#C0392B', weight: 7, opacity: .9}).addTo(routeLayer);
+  map.fitBounds(state.gapLayer.getBounds(), {padding: [40, 40]});
+}
+
+/* ---------- Events ---------- */
+$('load').addEventListener('click', () => loadView(true));
+let moveTimer;
+map.on('moveend', () => {
+  updateStats();
+  if (!$('auto').checked) return;
+  clearTimeout(moveTimer);
+  moveTimer = setTimeout(() => loadView(false), 600);
+});
+$('chips').addEventListener('click', e => {
+  const b = e.target.closest('.chip');
+  if (!b) return;
+  const k = b.dataset.kind;
+  state.enabled.has(k) ? state.enabled.delete(k) : state.enabled.add(k);
+  if (state.route) analyzeRoute();
+  render();
+});
+document.querySelector('.seg').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  state.colorBy = b.dataset.color;
+  document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-checked', String(x === b)));
+  render();
+});
+$('search-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const q = $('search').value.trim();
+  if (!q) return;
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(q)}`);
+    const [hit] = await res.json();
+    if (!hit) { setStatus(`No place found for "${q}".`, true); return; }
+    const bb = hit.boundingbox.map(Number);
+    map.fitBounds([[bb[0], bb[2]], [bb[1], bb[3]]], {maxZoom: 14});
+  } catch {
+    setStatus('Place search failed. Move the map by hand.', true);
+  }
+});
+$('gpx').addEventListener('change', async e => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  try {
+    const {coords, name} = parseGPX(await f.text());
+    state.route = buildRoute(coords, name || f.name.replace(/\.gpx$/i, ''));
+    routeLayer.clearLayers();
+    state.gapLayer = null;
+    L.polyline(coords, {color: '#FFFFFF', weight: 8, opacity: .9}).addTo(routeLayer);
+    const line = L.polyline(coords, {color: '#14212B', weight: 4}).addTo(routeLayer);
+    map.fitBounds(line.getBounds(), {padding: [30, 30]});
+    await loadRouteData();
+  } catch (err) {
+    $('route-out').innerHTML = `<p class="status err">${esc(err.message)}</p>`;
+  }
+});
+$('buffer').addEventListener('change', () => { if (state.route) loadRouteData(); });
+$('route-out').addEventListener('click', e => {
+  const g = e.target.closest('[data-gap]'), s = e.target.closest('[data-spot]');
+  if (g) showGap(state.routeResult.gaps[+g.dataset.gap]);
+  if (s) {
+    const spot = state.spots.get(s.dataset.spot), m = state.markers.get(s.dataset.spot);
+    if (spot) map.setView([spot.lat, spot.lon], Math.max(map.getZoom(), 16));
+    if (m) m.openPopup();
+  }
+});
+$('export').addEventListener('click', () => {
+  const b = map.getBounds();
+  const features = [...state.spots.values()].filter(s => state.enabled.has(s.kind) && b.contains([s.lat, s.lon]))
+    .map(s => ({type: 'Feature', geometry: {type: 'Point', coordinates: [s.lon, s.lat]},
+      properties: {osm_id: s.id, app_kind: s.kind, last_edit: s.timestamp, ...s.tags}}));
+  const blob = new Blob([JSON.stringify({type: 'FeatureCollection', features}, null, 1)], {type: 'application/geo+json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'water-points.geojson';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+$('collapse').addEventListener('click', () => {
+  const p = $('panel'), c = p.classList.toggle('collapsed');
+  $('collapse').textContent = c ? 'Show' : 'Hide';
+  $('collapse').setAttribute('aria-expanded', String(!c));
+});
+
+if (matchMedia('(max-width: 760px)').matches) $('collapse').click();
+render();
+loadView(false);
+</script>
+</body>
+</html>
