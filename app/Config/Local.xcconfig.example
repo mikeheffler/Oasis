@@ -1,0 +1,8 @@
+// Copy this file to Local.xcconfig and fill in your values.
+// Local.xcconfig is not in git.
+
+// Find your Team ID in Xcode > Settings > Accounts, or at developer.apple.com/account.
+DEVELOPMENT_TEAM = ABCDE12345
+
+// A personal team needs a bundle ID that no other developer uses.
+// WATERFINDER_BUNDLE_ID = com.yourname.WaterFinder

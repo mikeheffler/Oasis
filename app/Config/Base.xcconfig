@@ -1,0 +1,6 @@
+// Shared build settings. Local.xcconfig (not in git) can override them.
+WATERFINDER_BUNDLE_ID = com.mikeheffler.WaterFinder
+DEVELOPMENT_TEAM =
+
+// Optional include: the build still works when the file does not exist.
+#include? "Local.xcconfig"
