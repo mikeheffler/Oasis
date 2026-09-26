@@ -3,9 +3,6 @@ import OasisCore
 
 /// App-only styling for the OasisCore kinds.
 extension SpotKind {
-    /// Kinds that the map view loads. Buy water loads along a route only (phase 3).
-    static let mapKinds: [SpotKind] = [.fountain, .tap, .business, .other]
-
     var symbol: String {
         switch self {
         case .fountain: "drop.fill"
