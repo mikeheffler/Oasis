@@ -1,5 +1,6 @@
 import SwiftUI
 import MapKit
+import OasisCore
 
 struct MapScreen: View {
     @State private var store = WaterSpotStore(source: OverpassClient())
@@ -7,7 +8,8 @@ struct MapScreen: View {
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var visibleRegion: MKCoordinateRegion?
     @State private var selectedID: String?
-    @State private var enabledKinds = Set(SpotKind.allCases)
+    @State private var enabledKinds = Set(SpotKind.mapKinds)
+    @State private var verifiedOnly = false
 
     /// More markers than this makes the map slow, so show the nearest ones.
     private let markerLimit = 400
@@ -16,8 +18,9 @@ struct MapScreen: View {
         Map(position: $position, selection: $selectedID) {
             UserAnnotation()
             ForEach(visibleSpots) { spot in
-                Marker(spot.displayName, systemImage: spot.kind.symbol, coordinate: spot.coordinate)
-                    .tint(spot.kind.tint)
+                // Unverified points are faded.
+                Marker(spot.displayName, systemImage: spot.kind.symbol, coordinate: spot.clCoordinate)
+                    .tint(spot.kind.tint.opacity(spot.verification() == .verified ? 1 : 0.55))
                     .tag(spot.id)
             }
             .annotationTitles(.hidden)
@@ -34,6 +37,7 @@ struct MapScreen: View {
         }
         .safeAreaInset(edge: .top) {
             FilterBar(enabledKinds: $enabledKinds,
+                      verifiedOnly: $verifiedOnly,
                       isLoading: store.isLoading,
                       statusMessage: store.statusMessage)
         }
@@ -46,13 +50,16 @@ struct MapScreen: View {
     }
 
     private var visibleSpots: [WaterSpot] {
-        let all = store.spots.values.filter { enabledKinds.contains($0.kind) }
+        let now = Date()
+        let all = store.spots.values.filter {
+            enabledKinds.contains($0.kind) && (!verifiedOnly || $0.verification(asOf: now) == .verified)
+        }
         guard let region = visibleRegion else { return Array(all.prefix(markerLimit)) }
         let inView = all.filter { region.contains($0.coordinate) }
         guard inView.count > markerLimit else { return inView }
-        let center = CLLocation(latitude: region.center.latitude, longitude: region.center.longitude)
+        let center = Coordinate(region.center)
         return Array(inView
-            .sorted { center.distance(from: $0.location) < center.distance(from: $1.location) }
+            .sorted { center.distance(to: $0.coordinate) < center.distance(to: $1.coordinate) }
             .prefix(markerLimit))
     }
 
@@ -66,6 +73,7 @@ struct MapScreen: View {
 
 private struct FilterBar: View {
     @Binding var enabledKinds: Set<SpotKind>
+    @Binding var verifiedOnly: Bool
     let isLoading: Bool
     let statusMessage: String?
 
@@ -73,9 +81,10 @@ private struct FilterBar: View {
         VStack(alignment: .leading, spacing: 8) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach(SpotKind.allCases) { kind in
+                    ForEach(SpotKind.mapKinds) { kind in
                         chip(for: kind)
                     }
+                    verifiedChip
                     if isLoading {
                         ProgressView().padding(.leading, 4)
                     }
@@ -97,6 +106,22 @@ private struct FilterBar: View {
         }
         .padding(.vertical, 12)
         .background(.bar)
+    }
+
+    private var verifiedChip: some View {
+        Button {
+            verifiedOnly.toggle()
+        } label: {
+            Label("Verified only", systemImage: "checkmark.seal.fill")
+                .font(.subheadline.weight(.medium))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .foregroundStyle(verifiedOnly ? Color.white : Color.primary)
+                .background(verifiedOnly ? Color.primary.opacity(0.8) : Color(.secondarySystemBackground), in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Shows only points surveyed in the last \(VerificationRules.windowMonths) months.")
+        .accessibilityAddTraits(verifiedOnly ? .isSelected : [])
     }
 
     private func chip(for kind: SpotKind) -> some View {

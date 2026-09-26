@@ -1,6 +1,7 @@
 import Foundation
 import MapKit
 import Observation
+import OasisCore
 
 /// Holds all loaded water points. Loads data for the visible map area
 /// and keeps a disk cache, so areas you loaded before still show with no signal.
@@ -38,11 +39,11 @@ final class WaterSpotStore {
         }
 
         let now = Date()
-        let missing = TileKey.tiles(covering: region).filter { key in
+        let missing = TileKey.tiles(covering: BoundingBox(region)).filter { key in
             guard let date = tileDates[key] else { return true }
             return now.timeIntervalSince(date) > Self.cacheLifetime
         }
-        guard !missing.isEmpty else {
+        guard let box = BoundingBox(covering: missing) else {
             isLoading = false
             statusMessage = nil
             return
@@ -52,7 +53,7 @@ final class WaterSpotStore {
         statusMessage = nil
         do {
             try await Task.sleep(for: .milliseconds(400)) // debounce fast pans
-            let fetched = try await source.spots(in: BoundingBox(covering: missing))
+            let fetched = try await source.spots(in: box)
             try Task.checkCancellation()
 
             // Replace the data in the new tiles only.
@@ -79,7 +80,8 @@ final class WaterSpotStore {
         var tiles: [TileKey: Date]
     }
 
-    nonisolated private static let cacheURL = URL.cachesDirectory.appending(path: "water-spots-cache.json")
+    // v2: OasisCore rules (problem tags hidden). A new name drops caches made with the old rules.
+    nonisolated private static let cacheURL = URL.cachesDirectory.appending(path: "water-spots-cache-v2.json")
 
     private func loadCache() {
         guard let data = try? Data(contentsOf: Self.cacheURL),

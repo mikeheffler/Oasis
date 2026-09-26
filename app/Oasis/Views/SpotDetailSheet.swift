@@ -1,5 +1,6 @@
 import SwiftUI
 import MapKit
+import OasisCore
 
 struct SpotDetailSheet: View {
     let spot: WaterSpot
@@ -20,6 +21,7 @@ struct SpotDetailSheet: View {
                                 .font(.body)
                                 .foregroundStyle(.secondary)
                         }
+                        verificationLabel
                     }
                     .padding(.vertical, 4)
 
@@ -65,6 +67,20 @@ struct SpotDetailSheet: View {
         }
     }
 
+    @ViewBuilder
+    private var verificationLabel: some View {
+        if spot.verification() == .verified {
+            Label("Verified: surveyed in the last \(VerificationRules.windowMonths) months",
+                  systemImage: "checkmark.seal.fill")
+                .font(.subheadline)
+        } else {
+            Label("Unverified: no survey in the last \(VerificationRules.windowMonths) months",
+                  systemImage: "questionmark.circle")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+    }
+
     private var hasAnyDetail: Bool {
         spot.hasBottleFiller || [spot.seasonal, spot.openingHours, spot.fee, spot.access, spot.lastChecked, spot.note]
             .contains { $0 != nil }
@@ -72,6 +88,7 @@ struct SpotDetailSheet: View {
 
     private var warning: String? {
         if spot.kind == .business { return "This is a business. Ask the staff before you fill your bottle." }
+        if spot.kind == .buy { return "You must buy water here. Check the opening hours." }
         if spot.seasonal != nil { return "This water can be off for part of the year." }
         return nil
     }
@@ -91,7 +108,7 @@ struct SpotDetailSheet: View {
     }
 
     private func openDirections() {
-        let item = MKMapItem(placemark: MKPlacemark(coordinate: spot.coordinate))
+        let item = MKMapItem(placemark: MKPlacemark(coordinate: spot.clCoordinate))
         item.name = spot.displayName
         item.openInMaps()
     }

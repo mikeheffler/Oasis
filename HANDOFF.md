@@ -36,10 +36,10 @@ These came from Claude, not from Mike. Confirm before you build on them.
 Swift package, Foundation only. `cd OasisCore && swift test` passes on Linux (Swift 6.1.2, 58 tests).
 - `Coordinate` — own lat/lon type, haversine distance.
 - `SpotKind`, `WaterSpot` — same Codable keys as the phase 1 disk cache.
-- `OSMRules` — tag rules. Same rules as the explorer (the app still has its old copy until task 4).
+- `OSMRules` — tag rules. Same rules as the explorer.
 - `BoundingBox`, `TileKey`, `Geo` — 0.25° tile math. `BoundingBox(covering:)` is now failable (nil for no tiles).
 - `OverpassQuery` — box and `around` queries, `tags` or `meta` output, form-body encoding.
-- `OverpassResponse` — parser. It throws `OverpassParseError.incomplete` when Overpass returns HTTP 200 with a runtime-error remark (timeout). The phase 1 app does not check this, so it can cache a partial tile as complete for 7 days. Task 4 fixes the app.
+- `OverpassResponse` — parser. It throws `OverpassParseError.incomplete` when Overpass returns HTTP 200 with a runtime-error remark (timeout). The app uses this since task 4, so it no longer caches a partial tile.
 - `Route`, `RouteAnalysis` — ported from the explorer route check: projection, point at distance, slice, sampling for `around`, stops within a buffer, gaps, longest gaps, next stop.
 - Fixtures in `OasisCore/Tests/OasisCoreTests/Fixtures/` are synthetic Overpass JSON.
 - The route math was checked against the explorer JavaScript in Node with the same inputs. The numbers match.
@@ -52,8 +52,6 @@ Differences from the explorer (on purpose):
 
 Not ported yet: GPX parsing. On Linux, `XMLParser` is in `FoundationXML`. Add it with phase 3.
 
-Until task 4, the app still has its own copies of this logic. The app does not import OasisCore yet.
-
 ### Buy water, problem tags, verification (OasisCore) — DONE
 Mike's decisions (2026-09-26): two verification levels, hide problem tags, a separate "Buy water" category, OSM only for businesses.
 - `SpotKind.buy` ("Buy water"). `SpotKind.isFree` is false only for `buy`.
@@ -62,17 +60,18 @@ Mike's decisions (2026-09-26): two verification levels, hide problem tags, a sep
 - `OverpassQuery.query(in:layers:)` with `.freeWater` and `.buyWater`. `waterPoints(in:)` is unchanged (free water only).
 - 78 tests pass on Linux.
 
-### app/Oasis (phase 1 draft) — NOT COMPILED
-Written in chat with no Xcode. Expect small build errors.
-- `Models/WaterSpot.swift` — `SpotKind`, `WaterSpot`, OSM tag classification.
-- `Models/MapTiles.swift` — 0.25° tile grid, bounding boxes.
-- `Services/OverpassClient.swift` — POST query to public Overpass (prototype only).
-- `Services/WaterSpotStore.swift` — tile loading, 400 ms debounce, 7-day JSON disk cache.
+### app/Oasis (phase 1, uses OasisCore since task 4) — NOT COMPILED
+Written with no Xcode. Expect small build errors on the first Mac build.
+The app has no logic of its own now. The logic is in OasisCore.
+- `Models/CoreBridges.swift` — `Coordinate` ↔ `CLLocationCoordinate2D`, `BoundingBox(MKCoordinateRegion)`, region contains.
+- `Models/SpotKind+Style.swift` — SF Symbols, tints, `SpotKind.mapKinds` (no buy water on the map view).
+- `Services/OverpassClient.swift` — uses `OverpassQuery` and `OverpassResponse`. A timeout remark throws, so the tile is not cached. Type-checked on Linux against OasisCore.
+- `Services/WaterSpotStore.swift` — tile loading, 400 ms debounce, 7-day JSON disk cache (`water-spots-cache-v2.json`).
 - `Services/LocationManager.swift` — when-in-use location.
-- `Services/WaterSpotSource.swift` — protocol so the backend can replace Overpass.
-- `Views/MapScreen.swift` — Map with markers, filter chips, OSM attribution.
-- `Views/SpotDetailSheet.swift` — details, warnings, directions, OSM link.
-- `app/XCODE_SETUP.md` — manual Xcode setup steps.
+- `Services/WaterSpotSource.swift` — `Sendable` protocol so the backend can replace Overpass. Type-checked on Linux.
+- `Views/MapScreen.swift` — markers (unverified faded), filter chips, "Verified only" chip, OSM attribution.
+- `Views/SpotDetailSheet.swift` — verification state, details, warnings (business, buy, seasonal), directions, OSM link.
+- `app/XCODE_SETUP.md` — XcodeGen and manual setup steps.
 
 Known risks to check on first Mac build:
 - SF Symbol `spigot.fill` availability on iOS 17.
