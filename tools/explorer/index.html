@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css">
 <style>
 :root{--ink:#14212B;--ink-2:#4A5A67;--paper:#F6F8F9;--card:#FFFFFF;--line:#DCE3E8;--water:#1668C7;--water-deep:#0B4F9C;--amber:#C98210;--alert:#C0392B}
 *{box-sizing:border-box}
@@ -38,6 +39,9 @@ input[type=search]{flex:1}
 .chip{display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:14px;font-weight:500;padding:6px 12px 6px 10px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
 .chip[aria-pressed=false]{opacity:.45}
 .chip .n{font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.wcluster{display:flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-weight:700;font-size:13px;font-variant-numeric:tabular-nums;border:3px solid #fff;box-shadow:0 1px 4px rgba(20,33,43,.4);box-sizing:border-box}
+.wcluster-free{background:var(--water)}
+.wcluster-buy{background:var(--amber)}
 .sw{width:12px;height:12px;border-radius:50%;flex:none}
 .seg{display:inline-flex;margin-top:14px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .seg button{font:inherit;font-size:14px;font-weight:500;padding:6px 12px;border:0;background:var(--card);color:var(--ink-2);cursor:pointer}
@@ -105,7 +109,8 @@ h3{font-size:15px;font-weight:600;margin:16px 0 0}
         <h2>Show</h2>
         <div id="chips" class="chips"></div>
         <label class="check"><input type="checkbox" id="verified-only"> Verified only (survey in the last 24 months)</label>
-        <p class="hint">Faded points are unverified. Buy water (stores, gas stations, cafes, restaurants, drink machines) loads only along a GPX route.</p>
+        <label class="check"><input type="checkbox" id="group" checked> Group close points (tap a number to zoom in)</label>
+        <p class="hint">Faded points are unverified. Buy water (stores, gas stations, cafes, restaurants, drink machines) loads when the map is less than about 30 miles wide, and along a GPX route.</p>
         <div class="seg" role="radiogroup" aria-label="Color points by">
           <button type="button" role="radio" data-color="type" aria-checked="true">Color by type</button>
           <button type="button" role="radio" data-color="age" aria-checked="false">Color by last update</button>
@@ -138,6 +143,7 @@ h3{font-size:15px;font-weight:600;margin:16px 0 0}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
 <script>
 const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
 const TILE = 0.25, MIN_ZOOM_AUTO = 11, MAX_TILES = 16, MI = 1609.344;
@@ -151,6 +157,7 @@ const KINDS = {
   hidden:   {label: 'Hidden by app', fill: '#FFFFFF', stroke: '#C0392B'}
 };
 const VERIFIED_MONTHS = 24;
+const BUY_MAX_SPAN = 0.5; /* degrees of longitude; same limit as the app */
 const AGE = [
   {max: 1, label: 'Under 1 year', fill: '#0B4F9C'},
   {max: 3, label: '1 to 3 years', fill: '#3F86D1'},
@@ -199,6 +206,17 @@ map.on('locationerror', e => setStatus('Could not get your location. ' + e.messa
 const renderer = L.canvas({padding: 0.5});
 const routeLayer = L.layerGroup().addTo(map);
 const pointLayer = L.layerGroup().addTo(map);
+/* Close points group into one numbered icon. Free and buy water group separately. */
+const clusterGroup = layer => L.markerClusterGroup({
+  maxClusterRadius: 50, disableClusteringAtZoom: 17, showCoverageOnHover: false, chunkedLoading: true,
+  iconCreateFunction: c => L.divIcon({html: String(c.getChildCount()), className: `wcluster wcluster-${layer}`,
+                                      iconSize: L.point(34, 34)})
+}).addTo(map);
+const clusters = {free: clusterGroup('free'), buy: clusterGroup('buy')};
+function groupFor(s) {
+  if (s.kind === 'hidden' || !$('group').checked) return pointLayer;
+  return s.kind === 'buy' ? clusters.buy : clusters.free;
+}
 
 /* ---------- Data model (same rules as OasisCore: OSMRules, VerificationRules) ---------- */
 const PROBLEM_STATUS = new Set(['broken', 'closed', 'out_of_order', 'out_of_service', 'non-operational', 'non_operational']);
@@ -284,15 +302,16 @@ function fmtDate(ts) {
 }
 
 /* ---------- Overpass ---------- */
-/* Same as OverpassQuery.query in OasisCore. Buy water loads along a route only. */
-function buildQuery(area, timeout = 60, withBuy = false) {
-  const lines = [
+/* Same as OverpassQuery.query in OasisCore. layers: 'free' and/or 'buy'. */
+function buildQuery(area, timeout = 60, layers = ['free']) {
+  const lines = [];
+  if (layers.includes('free')) lines.push(
     '["amenity"="drinking_water"]["drinking_water"!="no"]',
     '["amenity"="water_point"]["drinking_water"!="no"]',
     '["drinking_water"="yes"]',
     '["drinking_water:refill"="yes"]'
-  ];
-  if (withBuy) lines.push(
+  );
+  if (layers.includes('buy')) lines.push(
     `["shop"~"^(${BUY_SHOPS.join('|')})$"]`,
     `["amenity"~"^(${BUY_AMENITIES.join('|')})$"]`,
     `["amenity"="vending_machine"]["vending"~"(^|;)(${DRINK_VENDING.join('|')})(;|$)"]`
@@ -316,8 +335,8 @@ async function overpass(query) {
   }
   throw lastErr || new Error('Could not reach the data server.');
 }
-async function runQuery(area, timeout, withBuy = false) {
-  const data = await overpass(buildQuery(area, timeout, withBuy));
+async function runQuery(area, timeout, layers) {
+  const data = await overpass(buildQuery(area, timeout, layers));
   let added = 0;
   for (const el of data.elements || []) {
     const s = toSpot(el);
@@ -340,18 +359,27 @@ function setStatus(msg, err = false) { const el = $('status'); el.textContent = 
 async function loadView(manual) {
   if (state.loading) { state.pending = true; return; }
   if (!manual && map.getZoom() < MIN_ZOOM_AUTO) { setStatus('Zoom in to load automatically, or select Load.'); return; }
-  const missing = tilesFor(map.getBounds()).filter(([x, y]) => !state.loadedTiles.has(`${x},${y}`));
-  if (!missing.length) { setStatus(`${state.spots.size.toLocaleString()} points loaded in total.`); return; }
-  if (missing.length > MAX_TILES) { setStatus('This area is too large. Zoom in, then try again.', true); return; }
-  const xs = missing.map(t => t[0]), ys = missing.map(t => t[1]);
-  const s = Math.min(...ys) * TILE, n = (Math.max(...ys) + 1) * TILE;
-  const w = Math.min(...xs) * TILE, e = (Math.max(...xs) + 1) * TILE;
+  const bounds = map.getBounds(), tiles = tilesFor(bounds);
+  const wantBuy = state.enabled.has('buy');
+  const buyFits = bounds.getEast() - bounds.getWest() <= BUY_MAX_SPAN;
+  const note = wantBuy && !buyFits ? ' Zoom in to load buy water.' : '';
+  const jobs = ['free', ...(wantBuy && buyFits ? ['buy'] : [])]
+    .map(layer => ({layer, missing: tiles.filter(([x, y]) => !state.loadedTiles.has(`${layer}:${x},${y}`))}))
+    .filter(j => j.missing.length);
+  if (!jobs.length) { setStatus(`${state.spots.size.toLocaleString()} points loaded in total.${note}`); return; }
+  if (jobs.some(j => j.missing.length > MAX_TILES)) { setStatus('This area is too large. Zoom in, then try again.', true); return; }
   state.loading = true;
-  setStatus('Loading water points…');
+  setStatus(jobs.length > 1 ? 'Loading water and buy water…' : jobs[0].layer === 'buy' ? 'Loading buy water…' : 'Loading water points…');
   try {
-    const added = await runQuery(`(${s},${w},${n},${e})`, 60);
-    missing.forEach(([x, y]) => state.loadedTiles.add(`${x},${y}`));
-    setStatus(`Added ${added.toLocaleString()} points. ${state.spots.size.toLocaleString()} loaded in total.`);
+    let added = 0;
+    for (const {layer, missing} of jobs) {
+      const xs = missing.map(t => t[0]), ys = missing.map(t => t[1]);
+      const s = Math.min(...ys) * TILE, n = (Math.max(...ys) + 1) * TILE;
+      const w = Math.min(...xs) * TILE, e = (Math.max(...xs) + 1) * TILE;
+      added += await runQuery(`(${s},${w},${n},${e})`, 60, [layer]);
+      missing.forEach(([x, y]) => state.loadedTiles.add(`${layer}:${x},${y}`));
+    }
+    setStatus(`Added ${added.toLocaleString()} points. ${state.spots.size.toLocaleString()} loaded in total.${note}`);
     if (state.route) analyzeRoute();
     render();
   } catch (e) {
@@ -361,7 +389,6 @@ async function loadView(manual) {
     if (state.pending) { state.pending = false; loadView(false); }
   }
 }
-
 /* ---------- Rendering ---------- */
 function styleFor(s) {
   if (state.colorBy === 'age' && s.kind !== 'hidden') {
@@ -377,14 +404,20 @@ function styleFor(s) {
 }
 function render() {
   pointLayer.clearLayers();
+  clusters.free.clearLayers();
+  clusters.buy.clearLayers();
   state.markers.clear();
+  const batches = new Map();
   for (const s of state.spots.values()) {
     if (!visible(s)) continue;
     const m = L.circleMarker([s.lat, s.lon], {renderer, ...styleFor(s)});
     m.bindPopup(() => popupHTML(s), {maxWidth: 320});
-    pointLayer.addLayer(m);
+    const g = groupFor(s);
+    if (!batches.has(g)) batches.set(g, []);
+    batches.get(g).push(m);
     state.markers.set(s.id, m);
   }
+  for (const [g, ms] of batches) g.addLayers ? g.addLayers(ms) : ms.forEach(m => g.addLayer(m));
   renderChips();
   renderLegend();
   updateStats();
@@ -519,7 +552,7 @@ async function loadRouteData() {
   state.loading = true;
   setStatus('Loading water along the route…');
   try {
-    const added = await runQuery(`(around:${Math.round(buf * 1.15)},${coords})`, 120, true);
+    const added = await runQuery(`(around:${Math.round(buf * 1.15)},${coords})`, 120, ['free', 'buy']);
     r.loadedBuffer = buf;
     setStatus(`Added ${added.toLocaleString()} points along the route.`);
   } catch (e) {
@@ -588,7 +621,9 @@ $('chips').addEventListener('click', e => {
   state.enabled.has(k) ? state.enabled.delete(k) : state.enabled.add(k);
   if (state.route) analyzeRoute();
   render();
+  if (k === 'buy' && state.enabled.has('buy')) loadView(true);
 });
+$('group').addEventListener('change', render);
 document.querySelector('.seg').addEventListener('click', e => {
   const b = e.target.closest('button');
   if (!b) return;
@@ -638,8 +673,10 @@ $('route-out').addEventListener('click', e => {
   if (g) showGap(state.routeResult.gaps[+g.dataset.gap]);
   if (s) {
     const spot = state.spots.get(s.dataset.spot), m = state.markers.get(s.dataset.spot);
-    if (spot) map.setView([spot.lat, spot.lon], Math.max(map.getZoom(), 16));
-    if (m) m.openPopup();
+    if (!spot || !m) return;
+    const g = groupFor(spot);
+    if (g.zoomToShowLayer) g.zoomToShowLayer(m, () => m.openPopup());
+    else { map.setView([spot.lat, spot.lon], Math.max(map.getZoom(), 16)); m.openPopup(); }
   }
 });
 $('export').addEventListener('click', () => {
