@@ -23,9 +23,11 @@ Mike prefers ASD-STE100 Simplified Technical English: short sentences, one instr
 - Keep the "© OpenStreetMap contributors" attribution visible on every map.
 
 ## Data rules
-- OSM query tags: `amenity=drinking_water`, `amenity=water_point`, `man_made=water_tap` + `drinking_water=yes`, any feature with `drinking_water=yes`, and `drinking_water:refill=yes` (businesses in the Refill scheme).
-- Exclude `drinking_water=no` and `access` in {private, no, customers}.
-- The classification rules exist in two places: `app/.../WaterSpot.swift` and `tools/explorer/index.html`. When you move them into `OasisCore`, keep the explorer in sync or note the difference.
+- Free water query tags: `amenity=drinking_water`, `amenity=water_point`, `man_made=water_tap` + `drinking_water=yes`, any feature with `drinking_water=yes`, and `drinking_water:refill=yes` (businesses in the Refill scheme).
+- "Buy water" is a separate category (`SpotKind.buy`): `shop` in {convenience, supermarket, general, kiosk}, `amenity` in {fuel, cafe, fast_food, restaurant}, and drink vending machines. Fetch it along a route only, not for the whole map view. Use OSM only for businesses for now (Mike's decision, 2026-09-26).
+- Hide `drinking_water=no`, `access` in {private, no, customers}, and problem tags (`operational_status` broken/closed/out of order, `disused=yes`, `abandoned=yes`). Exception: a place that sells drinks stays as "Buy water" with `access=customers` or `drinking_water=no`.
+- Two verification levels only: verified (OSM `check_date` or `survey:date` in the last 24 months; phase 2 adds Oasis user reports) and unverified (everything else). Show unverified points; do not hide them.
+- The rules live in `OasisCore` (`OSMRules`, `VerificationRules`) and in `tools/explorer/index.html`. Change both together, or note the difference in HANDOFF.md.
 - ODbL license: keep OSM data and community data in separate tables and layers. Do not bulk-upload community data to OSM. Any future OSM upload goes through each user's own OSM account.
 - Respect the Overpass usage policy. Clients must not query the public Overpass server in production. The backend syncs OSM data on a schedule.
 

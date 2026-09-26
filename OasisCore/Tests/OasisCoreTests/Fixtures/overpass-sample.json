@@ -24,6 +24,12 @@
      "tags": {"amenity": "water_point", "drinking_water": "no"}},
     {"type": "relation", "id": 3001,
      "tags": {"amenity": "drinking_water"}},
-    {"type": "node", "id": 1009, "lat": 38.2900, "lon": -122.2800}
+    {"type": "node", "id": 1009, "lat": 38.2900, "lon": -122.2800},
+    {"type": "node", "id": 1010, "lat": 38.3500, "lon": -122.3000,
+     "tags": {"shop": "convenience", "name": "Corner Market", "opening_hours": "Mo-Su 06:00-23:00"}},
+    {"type": "node", "id": 1011, "lat": 38.3600, "lon": -122.3100,
+     "tags": {"amenity": "drinking_water", "operational_status": "broken"}},
+    {"type": "node", "id": 1012, "lat": 38.3700, "lon": -122.3200,
+     "tags": {"amenity": "vending_machine", "vending": "drinks;food"}}
   ]
 }

@@ -18,20 +18,52 @@ public enum OverpassQuery {
         case meta
     }
 
+    /// What to fetch.
+    public enum Layer: Sendable, CaseIterable {
+        /// Free drinking water: fountains, taps, and features tagged with drinking water.
+        case freeWater
+        /// Places that sell drinks. Many per town, so fetch this layer along a route only.
+        case buyWater
+    }
+
+    /// Free drinking water only. Same query as the explorer's map view.
+    public static func waterPoints(in area: Area, timeout: Int = 25, output: Output = .tags) -> String {
+        query(in: area, layers: [.freeWater], timeout: timeout, output: output)
+    }
+
     /// `nwr` gets nodes, ways, and relations.
     /// `out center` gives one point for ways and relations (for example, a building).
-    public static func waterPoints(in area: Area, timeout: Int = 25, output: Output = .tags) -> String {
+    /// Filter the results with `OSMRules.evaluate`: the query does not remove problem tags.
+    public static func query(in area: Area, layers: Set<Layer>, timeout: Int = 25, output: Output = .tags) -> String {
         let filter = areaFilter(area)
+        var lines: [String] = []
+        if layers.contains(.freeWater) {
+            lines += [
+                #"nwr["amenity"="drinking_water"]["drinking_water"!="no"]"#,
+                #"nwr["amenity"="water_point"]["drinking_water"!="no"]"#,
+                #"nwr["drinking_water"="yes"]"#,
+                #"nwr["drinking_water:refill"="yes"]"#,
+            ]
+        }
+        if layers.contains(.buyWater) {
+            lines += [
+                #"nwr["shop"~"^(\#(alternation(OSMRules.buyShops)))$"]"#,
+                #"nwr["amenity"~"^(\#(alternation(OSMRules.buyAmenities)))$"]"#,
+                #"nwr["amenity"="vending_machine"]["vending"~"(^|;)(\#(alternation(OSMRules.drinkVending)))(;|$)"]"#,
+            ]
+        }
         return """
         [out:json][timeout:\(timeout)];
         (
-          nwr["amenity"="drinking_water"]["drinking_water"!="no"]\(filter);
-          nwr["amenity"="water_point"]["drinking_water"!="no"]\(filter);
-          nwr["drinking_water"="yes"]\(filter);
-          nwr["drinking_water:refill"="yes"]\(filter);
+        \(lines.map { "  \($0)\(filter);" }.joined(separator: "\n"))
         );
         out center \(output.rawValue);
         """
+    }
+
+    /// Sorted so the query text is stable.
+    static func alternation(_ values: Set<String>) -> String {
+        values.sorted().joined(separator: "|")
     }
 
     static func areaFilter(_ area: Area) -> String {

@@ -25,6 +25,27 @@ final class OverpassQueryTests: XCTestCase {
         XCTAssertTrue(q.hasSuffix("out center meta;"))
     }
 
+    func testWaterPointsIsFreeWaterLayer() {
+        let area = OverpassQuery.Area.box(BoundingBox(south: 1, west: 2, north: 3, east: 4))
+        XCTAssertEqual(OverpassQuery.waterPoints(in: area), OverpassQuery.query(in: area, layers: [.freeWater]))
+    }
+
+    func testBuyWaterLayer() {
+        let area = OverpassQuery.Area.box(BoundingBox(south: 1, west: 2, north: 3, east: 4))
+        let q = OverpassQuery.query(in: area, layers: [.buyWater])
+        let box = "(1.000000,2.000000,3.000000,4.000000)"
+        XCTAssertFalse(q.contains("drinking_water"))
+        XCTAssertTrue(q.contains(#"  nwr["shop"~"^(convenience|general|kiosk|supermarket)$"]\#(box);"#))
+        XCTAssertTrue(q.contains(#"  nwr["amenity"~"^(cafe|fast_food|fuel|restaurant)$"]\#(box);"#))
+        XCTAssertTrue(q.contains(#"  nwr["amenity"="vending_machine"]["vending"~"(^|;)(bottled_water|cold_drinks|drinks|water)(;|$)"]\#(box);"#))
+    }
+
+    func testBothLayers() {
+        let area = OverpassQuery.Area.box(BoundingBox(south: 1, west: 2, north: 3, east: 4))
+        let q = OverpassQuery.query(in: area, layers: Set(OverpassQuery.Layer.allCases))
+        XCTAssertEqual(q.components(separatedBy: "nwr[").count - 1, 7)
+    }
+
     func testNumbersNeverUseExponent() {
         XCTAssertEqual(OverpassQuery.fmt(0.00001), "0.000010")
         XCTAssertEqual(OverpassQuery.fmt(-0.0000001), "-0.000000")

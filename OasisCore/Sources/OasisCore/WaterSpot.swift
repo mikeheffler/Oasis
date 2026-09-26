@@ -43,11 +43,10 @@ public struct WaterSpot: Identifiable, Codable, Hashable, Sendable {
 }
 
 extension WaterSpot {
-    /// Makes a spot from OSM data. Returns nil if the feature is not public drinking water.
+    /// Makes a spot from OSM data. Returns nil if `OSMRules` hides the feature.
     public init?(osmType: String, osmID: Int64, latitude: Double, longitude: Double, tags: [String: String]) {
-        guard OSMRules.exclusion(for: tags) == nil else { return nil }
+        guard case .show(let kind) = OSMRules.evaluate(tags) else { return nil }
         self.init(id: "\(osmType)/\(osmID)", source: .openStreetMap,
-                  latitude: latitude, longitude: longitude,
-                  kind: OSMRules.classify(tags), tags: tags)
+                  latitude: latitude, longitude: longitude, kind: kind, tags: tags)
     }
 }
