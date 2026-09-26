@@ -36,7 +36,7 @@ struct SpotDetailSheet: View {
                 if let warning {
                     Section {
                         Label(warning, systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(Color(red: 0.70, green: 0.40, blue: 0.00))
+                            .foregroundStyle(Color.oasisAmber)
                     }
                 }
 

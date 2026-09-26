@@ -78,12 +78,13 @@ Mike's decision (2026-09-26): split buy water into three filterable categories, 
 Written with no Xcode. Expect small build errors on the first Mac build.
 The app has no logic of its own now. The logic is in OasisCore.
 - `Models/CoreBridges.swift` — `Coordinate` ↔ `CLLocationCoordinate2D`, `BoundingBox(MKCoordinateRegion)`, region contains.
-- `Models/SpotKind+Style.swift` — SF Symbols and tints. Buy categories are amber: `fuelpump.fill`, `cart.fill`, `fork.knife`.
+- `Models/SpotKind+Style.swift` — SF Symbols and the shared colors (`Color.oasisBlue` #1668C7, `.oasisAmber` #A8650A, `.oasisSlate` #5E6E7C), same as the explorer. Buy categories: `fuelpump.fill`, `cart.fill`, `fork.knife`.
+- `Views/SpotPin.swift` — the map pin: 28 pt round badge, white SF Symbol, white border, shadow, check-mark badge for verified points (44 pt tap area). Same design as the explorer. Mike wants to revisit the branding later; change it here.
 - `Services/OverpassClient.swift` — uses `OverpassQuery` and `OverpassResponse`. A timeout remark throws, so the tile is not cached. Type-checked on Linux against OasisCore.
 - `Services/WaterSpotStore.swift` — per-layer tile loading with `TileCache`, 400 ms debounce, 7-day JSON disk cache (`water-spots-cache-v4.json`). Buy water loads when a buy category chip is on and the view is at most 0.5° wide. Type-checked on Linux with stand-ins for the two MapKit types.
 - `Services/LocationManager.swift` — when-in-use location.
 - `Services/WaterSpotSource.swift` — `Sendable` protocol so the backend can replace Overpass. Type-checked on Linux.
-- `Views/MapScreen.swift` — markers (unverified faded), numbered cluster badges from `SpotClustering` (tap to zoom; off below 0.01° wide), filter chips with the count in view for each kind (Restaurant & cafe off by default), "Verified only" chip, OSM attribution.
+- `Views/MapScreen.swift` — `SpotPin` annotations (no fading; verified has a check mark), numbered cluster badges from `SpotClustering` (tap to zoom; off below 0.01° wide), filter chips with the count in view for each kind (Restaurant & cafe off by default), "Verified only" chip, OSM attribution.
 - `Views/SpotDetailSheet.swift` — verification state, details, warnings (business, buy, seasonal), directions, OSM link.
 - `app/XCODE_SETUP.md` — XcodeGen and manual setup steps.
 
@@ -95,7 +96,7 @@ Known risks to check on first Mac build:
 ### tools/explorer/index.html — LIVE on GitHub Pages
 - Base map: OSM standard, plus CyclOSM in the layer menu. CARTO was removed (it needs an API key on public hosts).
 - Same rules as OasisCore: buy water, problem tags, and verification. A parity check (35 tag cases, 13 date strings, both query texts) matched the Swift code.
-- Buy water has a chip (on by default). It loads in the map view when the view is at most 0.5° wide, and along a GPX route. Close points group into numbered clusters (Leaflet.markercluster 1.5.3, blue for free water, amber for buy water). A "Group close points" checkbox turns grouping off. The explorer uses the plugin's pixel-radius clustering, not `SpotClustering`, so cluster edges differ slightly from the app. Points are 28 px icon badges (solid color, white symbol, white border, shadow); a small check-mark badge marks a verified point. The explorer no longer fades unverified points (the app still does). "Verified only" filter. Hidden points show their reason in the popup.
+- Buy water has a chip (on by default). It loads in the map view when the view is at most 0.5° wide, and along a GPX route. Close points group into numbered clusters (Leaflet.markercluster 1.5.3, blue for free water, amber for buy water). A "Group close points" checkbox turns grouping off. The explorer uses the plugin's pixel-radius clustering, not `SpotClustering`, so cluster edges differ slightly from the app. Points are 28 px icon badges (solid color, white symbol, white border, shadow); a small check-mark badge marks a verified point. The app uses the same pin design (`SpotPin`). "Verified only" filter. Hidden points show their reason in the popup.
 - Layout: the panel is a side menu. A menu button (sliders icon) on the map opens and closes it. On phones (≤760 px) it slides in over the map and is closed by default (close with ✕, the dimmed map, or Escape; picking a search result or route item closes it). On larger screens it is docked on the left and open by default; closing it gives the map the full width.
 - Loading card in the center of the map: a water bottle that fills (with a moving wave) and the percent in blue below it. Overpass does not report progress, so the percent is an estimate: it eases toward 70% while the server works, follows the downloaded bytes, and reaches 100% when the data is ready. With two queries (free + buy water), each is half. The wave stops when the device asks for reduced motion.
 - Tested in headless Chromium with the fixture as a mock Overpass response. Mike tested the live page in Chrome.

@@ -18,13 +18,21 @@ struct MapScreen: View {
     private let clusterOffSpan = 0.01
 
     var body: some View {
-        Map(position: $position, selection: $selectedID) {
+        Map(position: $position) {
             UserAnnotation()
             ForEach(layout.singles) { spot in
-                // Unverified points are faded.
-                Marker(spot.displayName, systemImage: spot.kind.symbol, coordinate: spot.clCoordinate)
-                    .tint(spot.kind.tint.opacity(spot.verification() == .verified ? 1 : 0.55))
-                    .tag(spot.id)
+                Annotation(spot.displayName, coordinate: spot.clCoordinate, anchor: .center) {
+                    let verified = spot.verification() == .verified
+                    Button {
+                        selectedID = spot.id
+                    } label: {
+                        SpotPin(kind: spot.kind, verified: verified)
+                            .padding(8) // 44 pt tap area around the 28 pt pin
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(spot.kind.label): \(spot.displayName)\(verified ? ", verified" : "")")
+                }
             }
             .annotationTitles(.hidden)
             ForEach(layout.clusters) { cluster in
