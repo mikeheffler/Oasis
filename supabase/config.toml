@@ -1,0 +1,7 @@
+# Supabase CLI settings for local development and CI tests.
+# The live project is scbkoxbdzaipkxwyvrql (see docs/phase2-backend.md).
+project_id = "oasis"
+
+[db]
+port = 54322
+major_version = 17

@@ -69,7 +69,7 @@ create table profiles (
 -- Copied from OSM by oasis-sync. Read-only for users.
 create table osm_points (
   osm_id        text primary key,            -- 'node/123'
-  geom          geography(Point, 4326) not null,
+  geom          geometry(Point, 4326) not null,
   kind          text,                        -- SpotKind raw value; null when hidden
   hidden_reason text,                        -- e.g. 'access=private'
   tags          jsonb not null,
@@ -84,13 +84,13 @@ create index on osm_points using gist (geom);
 -- Submitted by users. Separate from OSM data.
 create table community_spots (
   id           uuid primary key default gen_random_uuid(),
-  geom         geography(Point, 4326) not null,
+  geom         geometry(Point, 4326) not null,
   kind         text not null,
   name         text,
   description  text,
   status       text not null default 'pending'
                check (status in ('pending', 'approved', 'rejected')),
-  submitted_by uuid not null references profiles on delete cascade,
+  submitted_by uuid references profiles on delete set null,  -- approved spots stay after account deletion
   submitted_at timestamptz not null default now(),
   reviewed_by  uuid references profiles,
   reviewed_at  timestamptz,
@@ -114,7 +114,9 @@ create table spot_reports (
 
 **Read API** (Postgres functions that the app calls through PostgREST):
 - `spots_in_bbox(west, south, east, north, layers)` returns OSM points (not hidden, not removed) plus approved community spots, with the latest report type and date for each point.
-- `spots_near_route(route geography, buffer_m)` — for phase 3. Defined now so that the schema is ready.
+- `spots_near_route(route, buffer_m)` — added in phase 3.
+
+The SQL above is a summary. The source of truth is `supabase/migrations/`. Points use `geometry(Point, 4326)`: box queries on it are exact and use the GiST index. Distance queries in phase 3 can cast to `geography`.
 
 ## 5. Verification with reports
 
