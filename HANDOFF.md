@@ -71,7 +71,7 @@ Mike's decision (2026-09-26): show buy water on the map with a toggle, and group
 Mike's decision (2026-09-26): split buy water into three filterable categories, and show the active categories with counts on the map.
 - `SpotKind.buy` is replaced by `.convenience` ("Gas & convenience", incl. fuel and drink machines), `.grocery` (supermarket), and `.restaurant` ("Restaurant & cafe"). `SpotKind.buyKinds` lists them. `OSMRules.buyKind(_:)` picks the category.
 - Restaurant & cafe is off by default (largest group, least useful for a quick stop).
-- Explorer: "In view" legend box on the map (top right) with each active category and its count. It stays visible when the side panel is hidden. Markers: gas & convenience = hollow amber ring, grocery = pale amber, restaurant = dashed amber ring.
+- Explorer: "In view" legend box on the map (top right) with each active category and its count. It stays visible when the side panel is hidden. Markers: all buy categories are deep amber (#A8650A, 4.6:1 with white) and differ by symbol: fuel pump, cart, fork and knife.
 - Parity check (43 tag cases, dates, query text) matched. 99 tests pass.
 
 ### app/Oasis (phase 1, uses OasisCore since task 4) — NOT COMPILED
@@ -95,7 +95,7 @@ Known risks to check on first Mac build:
 ### tools/explorer/index.html — LIVE on GitHub Pages
 - Base map: OSM standard, plus CyclOSM in the layer menu. CARTO was removed (it needs an API key on public hosts).
 - Same rules as OasisCore: buy water, problem tags, and verification. A parity check (35 tag cases, 13 date strings, both query texts) matched the Swift code.
-- Buy water has a chip (on by default). It loads in the map view when the view is at most 0.5° wide, and along a GPX route. Close points group into numbered clusters (Leaflet.markercluster 1.5.3, blue for free water, amber for buy water). A "Group close points" checkbox turns grouping off. The explorer uses the plugin's pixel-radius clustering, not `SpotClustering`, so cluster edges differ slightly from the app. Unverified points are faded. "Verified only" filter. Hidden points show their reason in the popup.
+- Buy water has a chip (on by default). It loads in the map view when the view is at most 0.5° wide, and along a GPX route. Close points group into numbered clusters (Leaflet.markercluster 1.5.3, blue for free water, amber for buy water). A "Group close points" checkbox turns grouping off. The explorer uses the plugin's pixel-radius clustering, not `SpotClustering`, so cluster edges differ slightly from the app. Points are 28 px icon badges (solid color, white symbol, white border, shadow); a small check-mark badge marks a verified point. The explorer no longer fades unverified points (the app still does). "Verified only" filter. Hidden points show their reason in the popup.
 - Tested in headless Chromium with the fixture as a mock Overpass response. Mike tested the live page in Chrome.
 
 Earlier notes:
