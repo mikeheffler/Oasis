@@ -26,10 +26,11 @@ These came from Claude, not from Mike. Confirm before you build on them.
 - Pages URL: https://mikeheffler.github.io/Oasis/
 - Mike must set Settings > Pages > Source to "GitHub Actions" one time.
 
-### CI (step 0) — ADDED
+### CI (step 0) — DONE, GREEN
 - `.github/workflows/ci.yml` runs on every PR and on pushes to `main`:
   - `OasisCore tests (Linux)` in the `swift:6.1` container.
   - `iOS app build (macOS)` on `macos-15`: `swift test` for OasisCore, then `xcodegen` and `xcodebuild` for the iOS Simulator with no code signing. The last step lists all compiler errors and warnings.
+  - First run (PR #19): BUILD SUCCEEDED with Xcode 16.4 / iOS 18.5 SDK, strict concurrency on, zero Swift errors or warnings. Mike may use a newer Xcode locally; new SDK deprecations can show there first.
 - Mike's decisions (2026-09-26): phase 2 (backend) before phase 3, Supabase, own phone first (no Apple Developer Program yet), first sync region is the state of Colorado.
 
 ### XcodeGen (task 2) — DONE, NOT RUN ON A MAC
@@ -80,8 +81,8 @@ Mike's decision (2026-09-26): split buy water into three filterable categories, 
 - Explorer: "In view" legend box on the map (top right). It lists only categories that are on and have points in the view, with counts ("No points in view" when empty). It stays visible when the side panel is hidden. Markers: all buy categories are deep amber (#A8650A, 4.6:1 with white) and differ by symbol: fuel pump, cart, fork and knife.
 - Parity check (43 tag cases, dates, query text) matched. 99 tests pass.
 
-### app/Oasis (phase 1, uses OasisCore since task 4) — NOT COMPILED
-Written with no Xcode. Expect small build errors on the first Mac build.
+### app/Oasis (phase 1, uses OasisCore since task 4) — BUILDS IN CI, NOT RUN ON A DEVICE YET
+CI builds it for the iOS Simulator on every PR. Nobody has run it on a device yet.
 The app has no logic of its own now. The logic is in OasisCore.
 - `Models/CoreBridges.swift` — `Coordinate` ↔ `CLLocationCoordinate2D`, `BoundingBox(MKCoordinateRegion)`, region contains.
 - `Models/SpotKind+Style.swift` — SF Symbols and the shared colors (`Color.oasisBlue` #1668C7, `.oasisAmber` #A8650A, `.oasisSlate` #5E6E7C), same as the explorer. Buy categories: `fuelpump.fill`, `cart.fill`, `fork.knife`.
@@ -118,7 +119,7 @@ Mike has not yet validated OSM coverage. Plan: use Overpass Turbo on his phone, 
 2. **XcodeGen.** Add `app/project.yml` so Mike can run `xcodegen` on his Mac instead of the manual steps. Include the location usage string, iOS 17 target, and the local `OasisCore` package dependency.
 3. **OasisCore package.** Move pure logic out of the app into `OasisCore/` (Foundation only, no CoreLocation/MapKit): own `Coordinate` type, `SpotKind`, classification, tile math, Overpass query builder, Overpass JSON parser, route distance and gap analysis (port from the explorer's JS). Add unit tests with fixture JSON. Run `swift test` here on Linux.
 4. **Refactor app** to use `OasisCore`. Keep app code thin.
-5. **Phase 2 design doc** in `docs/phase2-backend.md` for Mike to approve before any backend code: schema, RLS policies, auth, sync job, moderation flow (outline below).
+5. **Phase 2 design doc** in `docs/phase2-backend.md` for Mike to approve before any backend code: schema, RLS policies, auth, sync job, moderation flow. DRAFT WRITTEN (2026-09-26), waiting for Mike's review.
 
 ## 5. Phase 2 outline (proposal)
 - Tables: `osm_water_points` (synced, read-only), `community_spots` (status, submitted_by, reviewed_by, review_note), `spot_reports` (type: working, not_working, seasonal_off, refused, not_potable, other), `spot_photos`, `profiles` (role).
