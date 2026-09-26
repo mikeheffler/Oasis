@@ -78,12 +78,12 @@ Mike's decision (2026-09-26): split buy water into three filterable categories, 
 Written with no Xcode. Expect small build errors on the first Mac build.
 The app has no logic of its own now. The logic is in OasisCore.
 - `Models/CoreBridges.swift` — `Coordinate` ↔ `CLLocationCoordinate2D`, `BoundingBox(MKCoordinateRegion)`, region contains.
-- `Models/SpotKind+Style.swift` — SF Symbols and tints (buy water: amber, cart).
+- `Models/SpotKind+Style.swift` — SF Symbols and tints. Buy categories are amber: `fuelpump.fill`, `cart.fill`, `fork.knife`.
 - `Services/OverpassClient.swift` — uses `OverpassQuery` and `OverpassResponse`. A timeout remark throws, so the tile is not cached. Type-checked on Linux against OasisCore.
-- `Services/WaterSpotStore.swift` — per-layer tile loading with `TileCache`, 400 ms debounce, 7-day JSON disk cache (`water-spots-cache-v3.json`). Buy water loads when its chip is on and the view is at most 0.5° wide. Type-checked on Linux with stand-ins for the two MapKit types.
+- `Services/WaterSpotStore.swift` — per-layer tile loading with `TileCache`, 400 ms debounce, 7-day JSON disk cache (`water-spots-cache-v4.json`). Buy water loads when a buy category chip is on and the view is at most 0.5° wide. Type-checked on Linux with stand-ins for the two MapKit types.
 - `Services/LocationManager.swift` — when-in-use location.
 - `Services/WaterSpotSource.swift` — `Sendable` protocol so the backend can replace Overpass. Type-checked on Linux.
-- `Views/MapScreen.swift` — markers (unverified faded), numbered cluster badges from `SpotClustering` (tap to zoom; off below 0.01° wide), filter chips including Buy water, "Verified only" chip, OSM attribution.
+- `Views/MapScreen.swift` — markers (unverified faded), numbered cluster badges from `SpotClustering` (tap to zoom; off below 0.01° wide), filter chips with the count in view for each kind (Restaurant & cafe off by default), "Verified only" chip, OSM attribution.
 - `Views/SpotDetailSheet.swift` — verification state, details, warnings (business, buy, seasonal), directions, OSM link.
 - `app/XCODE_SETUP.md` — XcodeGen and manual setup steps.
 

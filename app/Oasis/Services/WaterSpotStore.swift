@@ -86,8 +86,8 @@ final class WaterSpotStore {
 
     // MARK: Disk cache
 
-    // v3: TileCache format with layers. A new name drops caches in older formats.
-    nonisolated private static let cacheURL = URL.cachesDirectory.appending(path: "water-spots-cache-v3.json")
+    // v4: buy water split into three kinds. A new name drops caches in older formats.
+    nonisolated private static let cacheURL = URL.cachesDirectory.appending(path: "water-spots-cache-v4.json")
 
     private func loadCache() {
         guard let data = try? Data(contentsOf: Self.cacheURL),
