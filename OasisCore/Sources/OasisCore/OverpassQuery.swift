@@ -18,13 +18,8 @@ public enum OverpassQuery {
         case meta
     }
 
-    /// What to fetch.
-    public enum Layer: Sendable, CaseIterable {
-        /// Free drinking water: fountains, taps, and features tagged with drinking water.
-        case freeWater
-        /// Places that sell drinks. Many per town, so fetch this layer along a route only.
-        case buyWater
-    }
+    /// What to fetch. See `SpotLayer`.
+    public typealias Layer = SpotLayer
 
     /// Free drinking water only. Same query as the explorer's map view.
     public static func waterPoints(in area: Area, timeout: Int = 25, output: Output = .tags) -> String {

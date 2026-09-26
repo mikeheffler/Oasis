@@ -24,7 +24,7 @@ Mike prefers ASD-STE100 Simplified Technical English: short sentences, one instr
 
 ## Data rules
 - Free water query tags: `amenity=drinking_water`, `amenity=water_point`, `man_made=water_tap` + `drinking_water=yes`, any feature with `drinking_water=yes`, and `drinking_water:refill=yes` (businesses in the Refill scheme).
-- "Buy water" is a separate category (`SpotKind.buy`): `shop` in {convenience, supermarket, general, kiosk}, `amenity` in {fuel, cafe, fast_food, restaurant}, and drink vending machines. Fetch it along a route only, not for the whole map view. Use OSM only for businesses for now (Mike's decision, 2026-09-26).
+- "Buy water" is a separate category (`SpotKind.buy`): `shop` in {convenience, supermarket, general, kiosk}, `amenity` in {fuel, cafe, fast_food, restaurant}, and drink vending machines. It has its own toggle (on by default). The map view loads it only when the view is at most 0.5° wide; the route check loads it along the route. Dense points group into numbered clusters (`SpotClustering`), free and buy water separately. Use OSM only for businesses for now (Mike's decisions, 2026-09-26).
 - Hide `drinking_water=no`, `access` in {private, no, customers}, and problem tags (`operational_status` broken/closed/out of order, `disused=yes`, `abandoned=yes`). Exception: a place that sells drinks stays as "Buy water" with `access=customers` or `drinking_water=no`.
 - Two verification levels only: verified (OSM `check_date` or `survey:date` in the last 24 months; phase 2 adds Oasis user reports) and unverified (everything else). Show unverified points; do not hide them.
 - The rules live in `OasisCore` (`OSMRules`, `VerificationRules`) and in `tools/explorer/index.html`. Change both together, or note the difference in HANDOFF.md.

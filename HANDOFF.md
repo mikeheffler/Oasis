@@ -60,6 +60,13 @@ Mike's decisions (2026-09-26): two verification levels, hide problem tags, a sep
 - `OverpassQuery.query(in:layers:)` with `.freeWater` and `.buyWater`. `waterPoints(in:)` is unchanged (free water only).
 - 78 tests pass on Linux.
 
+### Buy water on the map, clustering (OasisCore) — DONE
+Mike's decision (2026-09-26): show buy water on the map with a toggle, and group dense points into one icon with a count.
+- `SpotLayer` (`freeWater`, `buyWater`) and `SpotKind.layer`. `OverpassQuery.Layer` is now a typealias for `SpotLayer`.
+- `TileCache` — spots plus tile load times per layer. `merge` replaces one layer in the given tiles and keeps only spots of that layer's kinds. The app store uses it.
+- `SpotClustering` — grid clustering in Web Mercator space. Cell size is 360/2^n degrees, about 8 cells across the view. Free and buy water cluster separately. A cell needs 3 or more spots to become a cluster.
+- 95 tests pass on Linux.
+
 ### app/Oasis (phase 1, uses OasisCore since task 4) — NOT COMPILED
 Written with no Xcode. Expect small build errors on the first Mac build.
 The app has no logic of its own now. The logic is in OasisCore.
