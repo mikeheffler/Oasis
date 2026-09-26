@@ -14,7 +14,9 @@
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{font-family:'Public Sans',system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--ink);background:var(--paper);font-size:16px;line-height:1.5}
-#app{display:grid;grid-template-columns:372px 1fr;height:100%}
+#app{display:grid;grid-template-columns:372px 1fr;height:100%;position:relative}
+#app.menu-closed{grid-template-columns:0 1fr}
+#app.menu-closed #panel{visibility:hidden}
 #panel{overflow-y:auto;background:var(--paper);border-right:1px solid var(--line)}
 #map{height:100%;background:#E8EDF0}
 .head{position:relative;padding:24px 24px 16px}
@@ -76,7 +78,10 @@ input[type=search]{flex:1}
 .link-btn .d{color:var(--ink-2)}
 .gap .m{color:var(--alert)}
 h3{font-size:15px;font-weight:600;margin:16px 0 0}
-#collapse{display:none}
+#close-menu{position:absolute;right:16px;top:18px;width:40px;height:40px;padding:0;display:flex;align-items:center;justify-content:center;font-size:22px;line-height:1}
+.menu-btn a{display:flex!important;align-items:center;justify-content:center}
+.menu-btn svg{width:18px;height:18px}
+#scrim{display:none}
 .leaflet-container{font-family:inherit;font-size:14px}
 .pop-kind{font-size:13px;font-weight:600;color:var(--c)}
 .pop-name{font-size:17px;font-weight:700;margin:2px 0 6px;line-height:1.25}
@@ -88,15 +93,18 @@ h3{font-size:15px;font-weight:600;margin:16px 0 0}
 .pop td{padding:2px 0;word-break:break-word}
 .pop summary{cursor:pointer;font-weight:600;margin-top:4px}
 @media (max-width:760px){
-  #app{display:block;position:relative}
+  #app,#app.menu-closed{display:block;position:relative}
   #map{position:absolute;inset:0}
-  #panel{position:absolute;left:0;right:0;bottom:0;max-height:55vh;z-index:1000;border-right:0;border-top:1px solid var(--line);border-radius:16px 16px 0 0;box-shadow:0 -6px 20px rgba(20,33,43,.14);padding-bottom:env(safe-area-inset-bottom,0px)}
-  #panel.collapsed #panel-body,#panel.collapsed .sub{display:none}
-  .head{padding:16px 20px 12px}
+  /* Side menu over the map on phones. */
+  #panel{position:absolute;top:0;bottom:0;left:0;width:min(88vw,360px);z-index:1100;border-right:1px solid var(--line);box-shadow:6px 0 24px rgba(20,33,43,.22);transform:translateX(0);transition:transform .2s ease,visibility .2s;padding-bottom:env(safe-area-inset-bottom,0px)}
+  #app.menu-closed #panel{transform:translateX(-105%)}
+  #scrim{display:block;position:absolute;inset:0;z-index:1050;background:rgba(20,33,43,.35)}
+  #app.menu-closed #scrim{display:none}
+  .head{padding:16px 64px 12px 20px}
   h1{font-size:22px}
   section{padding:14px 20px}
-  #collapse{display:block;position:absolute;right:16px;top:14px}
 }
+@media (prefers-reduced-motion:reduce){#panel{transition:none!important}}
 </style>
 </head>
 <body>
@@ -105,7 +113,7 @@ h3{font-size:15px;font-weight:600;margin:16px 0 0}
     <header class="head">
       <h1>Water points</h1>
       <p class="sub">Public drinking water from OpenStreetMap. Use it to check the data before the app build.</p>
-      <button id="collapse" class="btn" aria-expanded="true" aria-controls="panel-body">Hide</button>
+      <button id="close-menu" class="btn" type="button" aria-label="Close menu">&times;</button>
     </header>
     <div id="panel-body">
       <section>
@@ -153,6 +161,7 @@ h3{font-size:15px;font-weight:600;margin:16px 0 0}
       </section>
     </div>
   </aside>
+  <div id="scrim" aria-hidden="true"></div>
   <div id="map" aria-label="Map of water points"></div>
 </div>
 
@@ -243,6 +252,19 @@ locate.onAdd = () => {
   return d;
 };
 locate.addTo(map);
+/* Menu button: opens and closes the side panel (a side menu over the map on phones). */
+const menu = L.control({position: 'topleft'});
+menu.onAdd = () => {
+  const d = L.DomUtil.create('div', 'leaflet-bar menu-btn');
+  d.innerHTML = '<a href="#" role="button" id="open-menu" title="Menu and filters" aria-label="Menu and filters" aria-controls="panel" aria-expanded="true">' +
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="#14212B" stroke-width="2.2" stroke-linecap="round">' +
+    '<path d="M4 7h16M4 12h16M4 17h16"/></g><g fill="#fff" stroke="#14212B" stroke-width="2">' +
+    '<circle cx="9" cy="7" r="2.2"/><circle cx="15" cy="12" r="2.2"/><circle cx="8" cy="17" r="2.2"/></g></svg></a>';
+  L.DomEvent.disableClickPropagation(d);
+  L.DomEvent.on(d, 'click', e => { L.DomEvent.preventDefault(e); setMenu($('app').classList.contains('menu-closed')); });
+  return d;
+};
+menu.addTo(map);
 const legendBox = L.control({position: 'topright'});
 legendBox.onAdd = () => {
   const d = L.DomUtil.create('div', 'legend-box');
@@ -720,6 +742,7 @@ $('search-form').addEventListener('submit', async e => {
     if (!hit) { setStatus(`No place found for "${q}".`, true); return; }
     const bb = hit.boundingbox.map(Number);
     map.fitBounds([[bb[0], bb[2]], [bb[1], bb[3]]], {maxZoom: 14});
+    if (phone.matches) setMenu(false, {focus: false});
   } catch {
     setStatus('Place search failed. Move the map by hand.', true);
   }
@@ -749,6 +772,7 @@ $('verified-only').addEventListener('change', e => {
 $('buffer').addEventListener('change', () => { if (state.route) loadRouteData(); });
 $('route-out').addEventListener('click', e => {
   const g = e.target.closest('[data-gap]'), s = e.target.closest('[data-spot]');
+  if ((g || s) && phone.matches) setMenu(false, {focus: false}); /* show the map */
   if (g) showGap(state.routeResult.gaps[+g.dataset.gap]);
   if (s) {
     const spot = state.spots.get(s.dataset.spot), m = state.markers.get(s.dataset.spot);
@@ -771,13 +795,23 @@ $('export').addEventListener('click', () => {
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 });
-$('collapse').addEventListener('click', () => {
-  const p = $('panel'), c = p.classList.toggle('collapsed');
-  $('collapse').textContent = c ? 'Show' : 'Hide';
-  $('collapse').setAttribute('aria-expanded', String(!c));
+const phone = matchMedia('(max-width: 760px)');
+function setMenu(open, {focus = true} = {}) {
+  $('app').classList.toggle('menu-closed', !open);
+  $('open-menu').setAttribute('aria-expanded', String(open));
+  $('panel').toggleAttribute('inert', !open);
+  map.invalidateSize();
+  if (!focus) return;
+  /* Wait for the slide-in to make the panel visible, or the focus call fails. */
+  if (open) setTimeout(() => $('close-menu').focus(), 60); else $('open-menu').focus();
+}
+$('close-menu').addEventListener('click', () => setMenu(false));
+$('scrim').addEventListener('click', () => setMenu(false));
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && phone.matches && !$('app').classList.contains('menu-closed')) setMenu(false);
 });
-
-if (matchMedia('(max-width: 760px)').matches) $('collapse').click();
+/* Closed by default on phones, open on larger screens. */
+setMenu(!phone.matches, {focus: false});
 render();
 loadView(false);
 </script>
