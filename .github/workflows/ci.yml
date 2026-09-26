@@ -55,3 +55,17 @@ jobs:
         working-directory: app
         shell: bash
         run: grep -E "(error|warning):" build.log | sort -u || echo "No errors or warnings."
+
+  database-tests:
+    name: Database tests (Supabase)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Start the local Supabase database and apply the migrations
+        run: supabase db start
+      - name: Run the database tests (pgTAP)
+        run: supabase test db

@@ -26,6 +26,13 @@ These came from Claude, not from Mike. Confirm before you build on them.
 - Pages URL: https://mikeheffler.github.io/Oasis/
 - Mike must set Settings > Pages > Source to "GitHub Actions" one time.
 
+### Phase 2, step 2.1: database schema — DONE (PR pending)
+- `supabase/config.toml` (CLI settings) and `supabase/migrations/20260926230000_phase2_schema.sql`: PostGIS, `profiles`, `osm_points`, `community_spots`, `spot_reports`, GiST indexes, a profile for each new account, `is_moderator()`, anti-spam limits (1 report per person per point per hour, 20 submissions per day), review stamping, and the `spots_in_bbox` read function (max 2° box, 5000 rows, never returns reporter or submitter).
+- Privileges: the migration revokes Supabase's default table grants and grants only the columns the API needs. RLS on all four tables.
+- `supabase/tests/phase2_schema.test.sql`: 39 pgTAP tests (anon, two contributors, a moderator). CI job `Database tests (Supabase)` runs them with `supabase db start` + `supabase test db`.
+- Not applied to the live project yet. That needs `SUPABASE_DB_URL` (step 2.2).
+- Kind values are in three places now: `OasisCore` `SpotKind`, the explorer, and the SQL check constraints and `spots_in_bbox`. Change all together.
+
 ### CI (step 0) — DONE, GREEN
 - `.github/workflows/ci.yml` runs on every PR and on pushes to `main`:
   - `OasisCore tests (Linux)` in the `swift:6.1` container.
