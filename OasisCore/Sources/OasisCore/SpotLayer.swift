@@ -10,5 +10,5 @@ public enum SpotLayer: String, Codable, CaseIterable, Hashable, Sendable {
 
 extension SpotKind {
     /// The layer that owns spots of this kind.
-    public var layer: SpotLayer { self == .buy ? .buyWater : .freeWater }
+    public var layer: SpotLayer { isFree ? .freeWater : .buyWater }
 }

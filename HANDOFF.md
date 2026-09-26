@@ -54,7 +54,7 @@ Not ported yet: GPX parsing. On Linux, `XMLParser` is in `FoundationXML`. Add it
 
 ### Buy water, problem tags, verification (OasisCore) — DONE
 Mike's decisions (2026-09-26): two verification levels, hide problem tags, a separate "Buy water" category, OSM only for businesses.
-- `SpotKind.buy` ("Buy water"). `SpotKind.isFree` is false only for `buy`.
+- Buy water kind (split into three categories later, see below). `SpotKind.isFree` is false only for buy kinds.
 - `OSMRules.evaluate(_:)` returns `.show(kind)` or `.hide(reason)`. It replaces `exclusion(for:)`.
 - `VerificationRules` and `WaterSpot.verification(asOf:)`. Verified = `check_date` or `survey:date` within 24 months (whole UTC days). Accepts YYYY, YYYY-MM, YYYY-MM-DD, and `;` lists. Ignores future dates.
 - `OverpassQuery.query(in:layers:)` with `.freeWater` and `.buyWater`. `waterPoints(in:)` is unchanged (free water only).
@@ -66,6 +66,13 @@ Mike's decision (2026-09-26): show buy water on the map with a toggle, and group
 - `TileCache` — spots plus tile load times per layer. `merge` replaces one layer in the given tiles and keeps only spots of that layer's kinds. The app store uses it.
 - `SpotClustering` — grid clustering in Web Mercator space. Cell size is 360/2^n degrees, about 8 cells across the view. Free and buy water cluster separately. A cell needs 3 or more spots to become a cluster.
 - 95 tests pass on Linux.
+
+### Buy water categories and on-map counts — DONE (OasisCore + explorer)
+Mike's decision (2026-09-26): split buy water into three filterable categories, and show the active categories with counts on the map.
+- `SpotKind.buy` is replaced by `.convenience` ("Gas & convenience", incl. fuel and drink machines), `.grocery` (supermarket), and `.restaurant` ("Restaurant & cafe"). `SpotKind.buyKinds` lists them. `OSMRules.buyKind(_:)` picks the category.
+- Restaurant & cafe is off by default (largest group, least useful for a quick stop).
+- Explorer: "In view" legend box on the map (top right) with each active category and its count. It stays visible when the side panel is hidden. Markers: gas & convenience = hollow amber ring, grocery = pale amber, restaurant = dashed amber ring.
+- Parity check (43 tag cases, dates, query text) matched. 99 tests pass.
 
 ### app/Oasis (phase 1, uses OasisCore since task 4) — NOT COMPILED
 Written with no Xcode. Expect small build errors on the first Mac build.

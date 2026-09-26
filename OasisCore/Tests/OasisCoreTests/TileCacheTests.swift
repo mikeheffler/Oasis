@@ -12,8 +12,10 @@ final class TileCacheTests: XCTestCase {
     }
 
     func testKindLayers() {
-        XCTAssertEqual(SpotKind.buy.layer, .buyWater)
-        for kind in SpotKind.allCases where kind != .buy {
+        for kind in SpotKind.buyKinds {
+            XCTAssertEqual(kind.layer, .buyWater, kind.rawValue)
+        }
+        for kind in SpotKind.allCases where kind.isFree {
             XCTAssertEqual(kind.layer, .freeWater, kind.rawValue)
         }
     }
@@ -43,7 +45,7 @@ final class TileCacheTests: XCTestCase {
         let there = [TileKey(x: -489, y: 153)]
         cache.merge([spot("f1", .fountain), spot("f2", .fountain)], tiles: here, layer: .freeWater, at: t0)
         cache.merge([spot("f3", .fountain, 38.3, -122.2)], tiles: there, layer: .freeWater, at: t0)
-        cache.merge([spot("b1", .buy)], tiles: here, layer: .buyWater, at: t0)
+        cache.merge([spot("b1", .convenience)], tiles: here, layer: .buyWater, at: t0)
         XCTAssertEqual(Set(cache.spots.keys), ["f1", "f2", "f3", "b1"])
 
         // f2 was removed from OSM. Reloading free water here must not touch b1 or f3.
@@ -55,9 +57,9 @@ final class TileCacheTests: XCTestCase {
         var cache = TileCache()
         let here = [TileKey(x: -490, y: 153)]
         // The buy query can return a restaurant with free water: it belongs to the free layer.
-        cache.merge([spot("b1", .buy), spot("r1", .business)], tiles: here, layer: .buyWater, at: t0)
+        cache.merge([spot("b1", .convenience), spot("r1", .business)], tiles: here, layer: .buyWater, at: t0)
         XCTAssertEqual(Set(cache.spots.keys), ["b1"])
-        cache.merge([spot("r1", .business), spot("b2", .buy)], tiles: here, layer: .freeWater, at: t0)
+        cache.merge([spot("r1", .business), spot("b2", .convenience)], tiles: here, layer: .freeWater, at: t0)
         XCTAssertEqual(Set(cache.spots.keys), ["b1", "r1"])
     }
 
@@ -71,7 +73,7 @@ final class TileCacheTests: XCTestCase {
         var cache = TileCache()
         let tiles = [TileKey(x: -490, y: 153)]
         cache.merge([spot("f1", .fountain)], tiles: tiles, layer: .freeWater, at: t0)
-        cache.merge([spot("b1", .buy)], tiles: tiles, layer: .buyWater, at: t0)
+        cache.merge([spot("b1", .convenience)], tiles: tiles, layer: .buyWater, at: t0)
         let decoded = try JSONDecoder().decode(TileCache.self, from: JSONEncoder().encode(cache))
         XCTAssertEqual(decoded.spots, cache.spots)
         XCTAssertEqual(decoded.missingTiles(covering: tiles[0].box, layer: .buyWater, now: t0, maxAge: week).count, 3)

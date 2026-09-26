@@ -28,11 +28,17 @@ public enum OSMRules {
         "cafe", "restaurant", "fast_food", "pub", "bar", "fuel", "ice_cream", "bicycle_rental",
     ]
 
-    /// Places that sell water or other drinks.
-    public static let buyShops: Set<String> = ["convenience", "supermarket", "general", "kiosk"]
-    public static let buyAmenities: Set<String> = ["fuel", "cafe", "fast_food", "restaurant"]
-    /// `vending=*` values (the tag is a semicolon list) for drink machines.
+    /// Places that sell water or other drinks, by category.
+    public static let convenienceShops: Set<String> = ["convenience", "general", "kiosk"]
+    public static let convenienceAmenities: Set<String> = ["fuel"]
+    public static let groceryShops: Set<String> = ["supermarket"]
+    public static let restaurantAmenities: Set<String> = ["restaurant", "cafe", "fast_food"]
+    /// `vending=*` values (the tag is a semicolon list) for drink machines. They count as convenience.
     public static let drinkVending: Set<String> = ["drinks", "water", "bottled_water", "cold_drinks"]
+
+    /// All shop and amenity values for the buy-water query.
+    public static var buyShops: Set<String> { convenienceShops.union(groceryShops) }
+    public static var buyAmenities: Set<String> { convenienceAmenities.union(restaurantAmenities) }
 
     /// Decides if a feature shows, and as which kind.
     public static func evaluate(_ tags: [String: String]) -> Decision {
@@ -41,9 +47,12 @@ public enum OSMRules {
             return .hide(.restrictedAccess(access))
         }
         // You can still buy water where the tap water is not for the public.
-        let sells = sellsDrinks(tags)
-        if tags["drinking_water"] == "no" { return sells ? .show(.buy) : .hide(.notDrinkable) }
-        if tags["access"] == "customers" { return sells ? .show(.buy) : .hide(.restrictedAccess("customers")) }
+        if tags["drinking_water"] == "no" {
+            return buyKind(tags).map(Decision.show) ?? .hide(.notDrinkable)
+        }
+        if tags["access"] == "customers" {
+            return buyKind(tags).map(Decision.show) ?? .hide(.restrictedAccess("customers"))
+        }
         return .show(classify(tags))
     }
 
@@ -53,24 +62,26 @@ public enum OSMRules {
         if amenity == "drinking_water" { return .fountain }
         if tags["man_made"] == "water_tap" || amenity == "water_point" { return .tap }
         if tags["drinking_water:refill"] == "yes" { return .business }
-        let sells = sellsDrinks(tags)
+        let buy = buyKind(tags)
         if tags["drinking_water"] == "yes",
-           tags["shop"] != nil || freeWaterBusinessAmenities.contains(amenity) || sells {
+           tags["shop"] != nil || freeWaterBusinessAmenities.contains(amenity) || buy != nil {
             return .business
         }
-        if sells { return .buy }
-        return .other
+        return buy ?? .other
     }
 
-    /// True for stores, gas stations, cafes, restaurants, and drink vending machines.
-    public static func sellsDrinks(_ tags: [String: String]) -> Bool {
-        if let shop = tags["shop"], buyShops.contains(shop) { return true }
-        let amenity = tags["amenity"] ?? ""
-        if buyAmenities.contains(amenity) { return true }
-        if amenity == "vending_machine", let vending = tags["vending"] {
-            return vending.split(separator: ";").contains { drinkVending.contains($0.trimmingCharacters(in: .whitespaces)) }
+    /// The buy category of a place that sells drinks, or nil.
+    /// Grocery wins over convenience, and convenience over restaurant, for mixed tags.
+    public static func buyKind(_ tags: [String: String]) -> SpotKind? {
+        let shop = tags["shop"] ?? "", amenity = tags["amenity"] ?? ""
+        if groceryShops.contains(shop) { return .grocery }
+        if convenienceShops.contains(shop) || convenienceAmenities.contains(amenity) { return .convenience }
+        if amenity == "vending_machine", let vending = tags["vending"],
+           vending.split(separator: ";").contains(where: { drinkVending.contains($0.trimmingCharacters(in: .whitespaces)) }) {
+            return .convenience
         }
-        return false
+        if restaurantAmenities.contains(amenity) { return .restaurant }
+        return nil
     }
 
     /// The first tag that marks the feature as broken, closed, or not used.

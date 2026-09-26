@@ -47,19 +47,38 @@ final class OSMRulesTests: XCTestCase {
 
     // MARK: Buy water
 
-    func testBuyPlaces() {
-        for shop in OSMRules.buyShops {
-            XCTAssertEqual(kind(["shop": shop]), .buy, shop)
+    func testBuyCategories() {
+        for shop in ["convenience", "general", "kiosk"] {
+            XCTAssertEqual(kind(["shop": shop]), .convenience, shop)
         }
-        for amenity in OSMRules.buyAmenities {
-            XCTAssertEqual(kind(["amenity": amenity]), .buy, amenity)
+        XCTAssertEqual(kind(["amenity": "fuel"]), .convenience)
+        XCTAssertEqual(kind(["shop": "supermarket"]), .grocery)
+        for amenity in ["restaurant", "cafe", "fast_food"] {
+            XCTAssertEqual(kind(["amenity": amenity]), .restaurant, amenity)
         }
     }
 
+    func testBuyPlaceWithFreeWaterIsFreeBusiness() {
+        XCTAssertEqual(kind(["shop": "supermarket", "drinking_water": "yes"]), .business)
+        XCTAssertEqual(kind(["amenity": "fuel", "drinking_water:refill": "yes"]), .business)
+    }
+
+    func testBuyCategoryOrder() {
+        // A gas station with a shop is convenience. A supermarket with a cafe is grocery.
+        XCTAssertEqual(kind(["amenity": "fuel", "shop": "convenience"]), .convenience)
+        XCTAssertEqual(kind(["shop": "supermarket", "amenity": "cafe"]), .grocery)
+        XCTAssertEqual(kind(["shop": "kiosk", "amenity": "fast_food"]), .convenience)
+    }
+
+    func testQuerySetsCoverAllCategories() {
+        XCTAssertEqual(OSMRules.buyShops, ["convenience", "general", "kiosk", "supermarket"])
+        XCTAssertEqual(OSMRules.buyAmenities, ["fuel", "restaurant", "cafe", "fast_food"])
+    }
+
     func testVendingMachines() {
-        XCTAssertEqual(kind(["amenity": "vending_machine", "vending": "drinks"]), .buy)
-        XCTAssertEqual(kind(["amenity": "vending_machine", "vending": "food; drinks"]), .buy)
-        XCTAssertEqual(kind(["amenity": "vending_machine", "vending": "water"]), .buy)
+        XCTAssertEqual(kind(["amenity": "vending_machine", "vending": "drinks"]), .convenience)
+        XCTAssertEqual(kind(["amenity": "vending_machine", "vending": "food; drinks"]), .convenience)
+        XCTAssertEqual(kind(["amenity": "vending_machine", "vending": "water"]), .convenience)
         XCTAssertEqual(kind(["amenity": "vending_machine", "vending": "parking_tickets"]), .other)
         XCTAssertEqual(kind(["amenity": "vending_machine"]), .other)
         // "drinks" must be a whole list item.
@@ -72,13 +91,13 @@ final class OSMRulesTests: XCTestCase {
     }
 
     func testBuyPlaceKeepsCustomersOnlyAndNoTapWater() {
-        XCTAssertEqual(kind(["amenity": "restaurant", "drinking_water": "yes", "access": "customers"]), .buy)
-        XCTAssertEqual(kind(["shop": "convenience", "drinking_water": "no"]), .buy)
+        XCTAssertEqual(kind(["amenity": "restaurant", "drinking_water": "yes", "access": "customers"]), .restaurant)
+        XCTAssertEqual(kind(["shop": "convenience", "drinking_water": "no"]), .convenience)
     }
 
     func testIsFree() {
-        XCTAssertFalse(SpotKind.buy.isFree)
         XCTAssertEqual(SpotKind.allCases.filter(\.isFree), [.fountain, .tap, .business, .other])
+        XCTAssertEqual(SpotKind.allCases.filter { !$0.isFree }, SpotKind.buyKinds)
     }
 
     // MARK: Hidden

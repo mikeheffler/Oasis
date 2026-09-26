@@ -19,9 +19,9 @@ final class OverpassResponseTests: XCTestCase {
         // A node with no tags is kept as "other", same as the explorer.
         XCTAssertEqual(byID["node/1009"]?.kind, .other)
         // A customers-only restaurant still sells drinks.
-        XCTAssertEqual(byID["node/1007"]?.kind, .buy)
-        XCTAssertEqual(byID["node/1010"]?.kind, .buy)
-        XCTAssertEqual(byID["node/1012"]?.kind, .buy)
+        XCTAssertEqual(byID["node/1007"]?.kind, .restaurant)
+        XCTAssertEqual(byID["node/1010"]?.kind, .convenience)
+        XCTAssertEqual(byID["node/1012"]?.kind, .convenience)
 
         // Hidden: private, not drinkable, broken. Dropped: relation with no center.
         for id in ["node/1006", "node/1008", "node/1011", "relation/3001"] {
