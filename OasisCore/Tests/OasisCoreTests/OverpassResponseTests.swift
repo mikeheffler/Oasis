@@ -4,7 +4,7 @@ import XCTest
 final class OverpassResponseTests: XCTestCase {
     func testParsesSampleFixture() throws {
         let response = try OverpassResponse.decode(Fixture.data("overpass-sample"))
-        XCTAssertEqual(response.elements.count, 11)
+        XCTAssertEqual(response.elements.count, 14)
         XCTAssertFalse(response.isIncomplete)
 
         let spots = try response.waterSpots()
@@ -18,12 +18,16 @@ final class OverpassResponseTests: XCTestCase {
         XCTAssertEqual(byID["node/1005"]?.kind, .other)
         // A node with no tags is kept as "other", same as the explorer.
         XCTAssertEqual(byID["node/1009"]?.kind, .other)
+        // A customers-only restaurant still sells drinks.
+        XCTAssertEqual(byID["node/1007"]?.kind, .buy)
+        XCTAssertEqual(byID["node/1010"]?.kind, .buy)
+        XCTAssertEqual(byID["node/1012"]?.kind, .buy)
 
-        // Excluded: private, customers-only, not drinkable. Dropped: relation with no center.
-        for id in ["node/1006", "node/1007", "node/1008", "relation/3001"] {
+        // Hidden: private, not drinkable, broken. Dropped: relation with no center.
+        for id in ["node/1006", "node/1008", "node/1011", "relation/3001"] {
             XCTAssertNil(byID[id], id)
         }
-        XCTAssertEqual(spots.count, 7)
+        XCTAssertEqual(spots.count, 10)
     }
 
     func testWayUsesCenter() throws {

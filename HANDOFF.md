@@ -36,7 +36,7 @@ These came from Claude, not from Mike. Confirm before you build on them.
 Swift package, Foundation only. `cd OasisCore && swift test` passes on Linux (Swift 6.1.2, 58 tests).
 - `Coordinate` — own lat/lon type, haversine distance.
 - `SpotKind`, `WaterSpot` — same Codable keys as the phase 1 disk cache.
-- `OSMRules` — `classify(_:)` and `exclusion(for:)`. Same rules as the app and the explorer.
+- `OSMRules` — tag rules. Same rules as the explorer (the app still has its old copy until task 4).
 - `BoundingBox`, `TileKey`, `Geo` — 0.25° tile math. `BoundingBox(covering:)` is now failable (nil for no tiles).
 - `OverpassQuery` — box and `around` queries, `tags` or `meta` output, form-body encoding.
 - `OverpassResponse` — parser. It throws `OverpassParseError.incomplete` when Overpass returns HTTP 200 with a runtime-error remark (timeout). The phase 1 app does not check this, so it can cache a partial tile as complete for 7 days. Task 4 fixes the app.
@@ -45,7 +45,7 @@ Swift package, Foundation only. `cd OasisCore && swift test` passes on Linux (Sw
 - The route math was checked against the explorer JavaScript in Node with the same inputs. The numbers match.
 
 Differences from the explorer (on purpose):
-- The explorer shows excluded points as red "private" markers. OasisCore drops them. `OSMRules.exclusion(for:)` gives the reason if a caller needs it.
+- The explorer shows hidden points as red markers. OasisCore drops them. `OSMRules.evaluate(_:)` gives the reason if a caller needs it.
 - `Route.point(atDistance:)` clamps to the route ends. The explorer extrapolates.
 - `Route.sampled` does not add the last point two times.
 - The explorer does not check the Overpass `remark`.
@@ -53,6 +53,14 @@ Differences from the explorer (on purpose):
 Not ported yet: GPX parsing. On Linux, `XMLParser` is in `FoundationXML`. Add it with phase 3.
 
 Until task 4, the app still has its own copies of this logic. The app does not import OasisCore yet.
+
+### Buy water, problem tags, verification (OasisCore) — DONE
+Mike's decisions (2026-09-26): two verification levels, hide problem tags, a separate "Buy water" category, OSM only for businesses.
+- `SpotKind.buy` ("Buy water"). `SpotKind.isFree` is false only for `buy`.
+- `OSMRules.evaluate(_:)` returns `.show(kind)` or `.hide(reason)`. It replaces `exclusion(for:)`.
+- `VerificationRules` and `WaterSpot.verification(asOf:)`. Verified = `check_date` or `survey:date` within 24 months (whole UTC days). Accepts YYYY, YYYY-MM, YYYY-MM-DD, and `;` lists. Ignores future dates.
+- `OverpassQuery.query(in:layers:)` with `.freeWater` and `.buyWater`. `waterPoints(in:)` is unchanged (free water only).
+- 78 tests pass on Linux.
 
 ### app/Oasis (phase 1 draft) — NOT COMPILED
 Written in chat with no Xcode. Expect small build errors.
