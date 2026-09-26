@@ -26,6 +26,13 @@ These came from Claude, not from Mike. Confirm before you build on them.
 - Pages URL: https://mikeheffler.github.io/Oasis/
 - Mike must set Settings > Pages > Source to "GitHub Actions" one time.
 
+### XcodeGen (task 2) — DONE, NOT RUN ON A MAC
+- `app/project.yml` makes `WaterFinder.xcodeproj`. iOS 17, iPhone only, location usage text, Swift 5 mode with strict concurrency, local `WaterFinderCore` package.
+- `app/Config/Base.xcconfig` holds the bundle ID and team. It optionally includes `app/Config/Local.xcconfig` (not in git) for Mike's Team ID. See `Local.xcconfig.example`.
+- `WaterFinderCore/` is a skeleton package (placeholder type, one fixture, two tests). `swift test` passes on Linux with Swift 6.1.2. Task 3 fills it.
+- The container has no Swift toolchain by default. This session installed Swift 6.1.2 in `/opt/swift`. A SessionStart hook could automate this.
+- `app/XCODE_SETUP.md` now describes the XcodeGen steps first.
+
 ### app/WaterFinder (phase 1 draft) — NOT COMPILED
 Written in chat with no Xcode. Expect small build errors.
 - `Models/WaterSpot.swift` — `SpotKind`, `WaterSpot`, OSM tag classification.

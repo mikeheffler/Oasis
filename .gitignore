@@ -29,4 +29,4 @@ Package.resolved
 # Secrets and local config
 .env
 .env.*
-*.xcconfig.local
+app/Config/Local.xcconfig
