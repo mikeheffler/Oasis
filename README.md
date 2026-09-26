@@ -1,4 +1,4 @@
-# WaterFinder
+# Oasis
 
 A native iOS app that finds public drinking water for cyclists, through-hikers, and other long-distance travelers. Data comes from OpenStreetMap, plus community submissions that moderators approve.
 

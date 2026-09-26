@@ -1,6 +1,6 @@
-# XcodeGen spec. Run `xcodegen` in this folder to make WaterFinder.xcodeproj.
+# XcodeGen spec. Run `xcodegen` in this folder to make Oasis.xcodeproj.
 # The .xcodeproj is not in git. Run xcodegen again after you add or move files.
-name: WaterFinder
+name: Oasis
 
 options:
   bundleIdPrefix: com.mikeheffler
@@ -20,24 +20,24 @@ settings:
     CURRENT_PROJECT_VERSION: "1"
 
 packages:
-  WaterFinderCore:
-    path: ../WaterFinderCore
+  OasisCore:
+    path: ../OasisCore
 
 targets:
-  WaterFinder:
+  Oasis:
     type: application
     platform: iOS
     sources:
-      - path: WaterFinder
+      - path: Oasis
     dependencies:
-      - package: WaterFinderCore
+      - package: OasisCore
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: $(WATERFINDER_BUNDLE_ID)
+        PRODUCT_BUNDLE_IDENTIFIER: $(OASIS_BUNDLE_ID)
         TARGETED_DEVICE_FAMILY: "1"   # iPhone only
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: WaterFinder
+        INFOPLIST_KEY_CFBundleDisplayName: Oasis
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: Shows drinking water near you.
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES

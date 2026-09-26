@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct WaterFinderApp: App {
+struct OasisApp: App {
     var body: some Scene {
         WindowGroup {
             MapScreen()
