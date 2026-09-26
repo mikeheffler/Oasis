@@ -71,7 +71,7 @@ Mike's decision (2026-09-26): show buy water on the map with a toggle, and group
 Mike's decision (2026-09-26): split buy water into three filterable categories, and show the active categories with counts on the map.
 - `SpotKind.buy` is replaced by `.convenience` ("Gas & convenience", incl. fuel and drink machines), `.grocery` (supermarket), and `.restaurant` ("Restaurant & cafe"). `SpotKind.buyKinds` lists them. `OSMRules.buyKind(_:)` picks the category.
 - Restaurant & cafe is off by default (largest group, least useful for a quick stop).
-- Explorer: "In view" legend box on the map (top right) with each active category and its count. It stays visible when the side panel is hidden. Markers: all buy categories are deep amber (#A8650A, 4.6:1 with white) and differ by symbol: fuel pump, cart, fork and knife.
+- Explorer: "In view" legend box on the map (top right). It lists only categories that are on and have points in the view, with counts ("No points in view" when empty). It stays visible when the side panel is hidden. Markers: all buy categories are deep amber (#A8650A, 4.6:1 with white) and differ by symbol: fuel pump, cart, fork and knife.
 - Parity check (43 tag cases, dates, query text) matched. 99 tests pass.
 
 ### app/Oasis (phase 1, uses OasisCore since task 4) — NOT COMPILED

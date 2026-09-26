@@ -46,6 +46,7 @@ input[type=search]{flex:1}
 .legend-box .lb-head{display:flex;justify-content:space-between;gap:12px;font-weight:700;margin-bottom:4px}
 .legend-box .lb-row{display:flex;align-items:center;gap:6px;padding:1px 0}
 .legend-box .lb-label{flex:1}
+.legend-box .lb-empty{color:var(--ink-2)}
 .legend-box .lb-n,.legend-box .lb-head span{font-variant-numeric:tabular-nums}
 .wpin-wrap{background:none;border:none}
 .wpin{--bg:#1668C7;position:relative;width:28px;height:28px;border-radius:50%;border:2.5px solid #fff;box-sizing:border-box;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(20,33,43,.55),0 0 0 1px rgba(20,33,43,.3)}
@@ -524,13 +525,14 @@ function renderChips() {
     `<button type="button" class="chip" data-kind="${key}" aria-pressed="${state.enabled.has(key)}">
       ${swatch(k)}${esc(k.label)}
       <span class="n">${(counts[key] || 0).toLocaleString()}</span></button>`).join('');
-  /* On-map legend: active categories and their counts in the view. Stays when the panel is hidden. */
-  const active = Object.entries(KINDS).filter(([key]) => state.enabled.has(key));
-  const total = active.reduce((n, [key]) => n + (counts[key] || 0), 0);
-  $('legend-box').hidden = !active.length;
+  /* On-map legend: only categories that are on and have points in the view. Stays when the panel is hidden. */
+  const active = Object.entries(KINDS).filter(([key]) => state.enabled.has(key) && counts[key]);
+  const total = active.reduce((n, [key]) => n + counts[key], 0);
   $('legend-box').innerHTML = `<div class="lb-head">In view<span>${total.toLocaleString()}</span></div>` +
-    active.map(([key, k]) => `<div class="lb-row">${swatch(k)}<span class="lb-label">${esc(k.label)}</span>
-      <span class="lb-n">${(counts[key] || 0).toLocaleString()}</span></div>`).join('');
+    (active.length
+      ? active.map(([key, k]) => `<div class="lb-row">${swatch(k)}<span class="lb-label">${esc(k.label)}</span>
+          <span class="lb-n">${counts[key].toLocaleString()}</span></div>`).join('')
+      : '<div class="lb-row lb-empty">No points in view</div>');
 }
 function renderLegend() {
   $('legend').innerHTML = state.colorBy === 'age'
