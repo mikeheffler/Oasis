@@ -3,7 +3,7 @@ import MapKit
 import Observation
 import OasisCore
 
-/// Holds all loaded water points. Loads data for the visible map area
+/// Holds all loaded water points. Loads data for the visible map area, one layer at a time,
 /// and keeps a disk cache, so areas you loaded before still show with no signal.
 @MainActor
 @Observable
@@ -13,10 +13,12 @@ final class WaterSpotStore {
     private(set) var statusMessage: String?
 
     static let maxSpanDegrees = 1.0
+    /// Buy water is dense in towns, so it loads only when the view is this narrow or less.
+    static let maxBuySpanDegrees = 0.5
     static let cacheLifetime: TimeInterval = 7 * 24 * 60 * 60
 
     private let source: any WaterSpotSource
-    private var tileDates: [TileKey: Date] = [:]
+    private var cache = TileCache()
     private var currentTask: Task<Void, Never>?
 
     init(source: any WaterSpotSource) {
@@ -24,13 +26,13 @@ final class WaterSpotStore {
         loadCache()
     }
 
-    /// Call when the map stops moving.
-    func regionChanged(_ region: MKCoordinateRegion) {
+    /// Call when the map stops moving, or when the buy water filter changes.
+    func regionChanged(_ region: MKCoordinateRegion, loadBuyWater: Bool) {
         currentTask?.cancel()
-        currentTask = Task { await load(region) }
+        currentTask = Task { await load(region, loadBuyWater: loadBuyWater) }
     }
 
-    private func load(_ region: MKCoordinateRegion) async {
+    private func load(_ region: MKCoordinateRegion, loadBuyWater: Bool) async {
         guard region.span.latitudeDelta <= Self.maxSpanDegrees,
               region.span.longitudeDelta <= Self.maxSpanDegrees else {
             isLoading = false
@@ -38,31 +40,40 @@ final class WaterSpotStore {
             return
         }
 
-        let now = Date()
-        let missing = TileKey.tiles(covering: BoundingBox(region)).filter { key in
-            guard let date = tileDates[key] else { return true }
-            return now.timeIntervalSince(date) > Self.cacheLifetime
+        var layers: [SpotLayer] = [.freeWater]
+        var note: String?
+        if loadBuyWater {
+            if region.span.latitudeDelta <= Self.maxBuySpanDegrees,
+               region.span.longitudeDelta <= Self.maxBuySpanDegrees {
+                layers.append(.buyWater)
+            } else {
+                note = "Zoom in to load buy water"
+            }
         }
-        guard let box = BoundingBox(covering: missing) else {
+
+        let now = Date()
+        let view = BoundingBox(region)
+        let jobs: [(layer: SpotLayer, tiles: [TileKey], box: BoundingBox)] = layers.compactMap { layer in
+            let tiles = cache.missingTiles(covering: view, layer: layer, now: now, maxAge: Self.cacheLifetime)
+            guard let box = BoundingBox(covering: tiles) else { return nil }
+            return (layer, tiles, box)
+        }
+        guard !jobs.isEmpty else {
             isLoading = false
-            statusMessage = nil
+            statusMessage = note
             return
         }
 
         isLoading = true
-        statusMessage = nil
+        statusMessage = note
         do {
             try await Task.sleep(for: .milliseconds(400)) // debounce fast pans
-            let fetched = try await source.spots(in: box)
-            try Task.checkCancellation()
-
-            // Replace the data in the new tiles only.
-            let missingSet = Set(missing)
-            spots = spots.filter { !missingSet.contains(TileKey(containing: $0.value.coordinate)) }
-            for spot in fetched where missingSet.contains(TileKey(containing: spot.coordinate)) {
-                spots[spot.id] = spot
+            for job in jobs {
+                let fetched = try await source.spots(in: job.box, layer: job.layer)
+                try Task.checkCancellation()
+                cache.merge(fetched, tiles: job.tiles, layer: job.layer, at: now)
+                spots = cache.spots
             }
-            for key in missing { tileDates[key] = now }
             saveCache()
             isLoading = false
         } catch {
@@ -75,24 +86,18 @@ final class WaterSpotStore {
 
     // MARK: Disk cache
 
-    private struct CacheFile: Codable {
-        var spots: [WaterSpot]
-        var tiles: [TileKey: Date]
-    }
-
-    // v2: OasisCore rules (problem tags hidden). A new name drops caches made with the old rules.
-    nonisolated private static let cacheURL = URL.cachesDirectory.appending(path: "water-spots-cache-v2.json")
+    // v3: TileCache format with layers. A new name drops caches in older formats.
+    nonisolated private static let cacheURL = URL.cachesDirectory.appending(path: "water-spots-cache-v3.json")
 
     private func loadCache() {
         guard let data = try? Data(contentsOf: Self.cacheURL),
-              let file = try? JSONDecoder().decode(CacheFile.self, from: data) else { return }
-        spots = Dictionary(file.spots.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        tileDates = file.tiles
+              let file = try? JSONDecoder().decode(TileCache.self, from: data) else { return }
+        cache = file
+        spots = file.spots
     }
 
     private func saveCache() {
-        let file = CacheFile(spots: Array(spots.values), tiles: tileDates)
-        guard let data = try? JSONEncoder().encode(file) else { return }
+        guard let data = try? JSONEncoder().encode(cache) else { return }
         let url = Self.cacheURL
         Task.detached(priority: .utility) {
             try? data.write(to: url, options: .atomic)

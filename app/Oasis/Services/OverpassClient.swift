@@ -19,13 +19,13 @@ struct OverpassClient: WaterSpotSource {
         }
     }
 
-    func spots(in box: BoundingBox) async throws -> [WaterSpot] {
+    func spots(in box: BoundingBox, layer: SpotLayer) async throws -> [WaterSpot] {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.timeoutInterval = 30
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.setValue("Oasis-iOS/0.1 (personal prototype)", forHTTPHeaderField: "User-Agent")
-        request.httpBody = OverpassQuery.formBody(for: OverpassQuery.waterPoints(in: .box(box)))
+        request.httpBody = OverpassQuery.formBody(for: OverpassQuery.query(in: .box(box), layers: [layer]))
 
         let (data, response) = try await session.data(for: request)
         if let http = response as? HTTPURLResponse, http.statusCode != 200 {
