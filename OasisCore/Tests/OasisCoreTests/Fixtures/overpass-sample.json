@@ -1,0 +1,29 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API (synthetic fixture for OasisCore tests)",
+  "osm3s": {"timestamp_osm_base": "2026-09-20T00:00:00Z", "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."},
+  "elements": [
+    {"type": "node", "id": 1001, "lat": 38.2975, "lon": -122.2869,
+     "timestamp": "2025-06-01T12:00:00Z", "version": 3, "user": "mapper1",
+     "tags": {"amenity": "drinking_water", "bottle": "yes", "check_date": "2025-05-30"}},
+    {"type": "node", "id": 1002, "lat": 38.3050, "lon": -122.2900,
+     "tags": {"man_made": "water_tap", "drinking_water": "yes", "seasonal": "summer"}},
+    {"type": "node", "id": 1003, "lat": 38.3100, "lon": -122.2950,
+     "tags": {"amenity": "water_point", "drinking_water": "yes"}},
+    {"type": "node", "id": 1004, "lat": 38.4000, "lon": -122.3600,
+     "tags": {"amenity": "cafe", "name": "Refill Cafe", "drinking_water:refill": "yes"}},
+    {"type": "way", "id": 2001, "center": {"lat": 38.5025, "lon": -122.4700},
+     "tags": {"shop": "convenience", "drinking_water": "yes", "opening_hours": "Mo-Su 06:00-22:00"}},
+    {"type": "node", "id": 1005, "lat": 38.4200, "lon": -122.3800,
+     "tags": {"amenity": "toilets", "drinking_water": "yes", "description": "Tap by the door"}},
+    {"type": "node", "id": 1006, "lat": 38.4300, "lon": -122.3900,
+     "tags": {"amenity": "drinking_water", "access": "private"}},
+    {"type": "node", "id": 1007, "lat": 38.4400, "lon": -122.4000,
+     "tags": {"amenity": "restaurant", "drinking_water": "yes", "access": "customers"}},
+    {"type": "node", "id": 1008, "lat": 38.4500, "lon": -122.4100,
+     "tags": {"amenity": "water_point", "drinking_water": "no"}},
+    {"type": "relation", "id": 3001,
+     "tags": {"amenity": "drinking_water"}},
+    {"type": "node", "id": 1009, "lat": 38.2900, "lon": -122.2800}
+  ]
+}

@@ -29,9 +29,30 @@ These came from Claude, not from Mike. Confirm before you build on them.
 ### XcodeGen (task 2) — DONE, NOT RUN ON A MAC
 - `app/project.yml` makes `Oasis.xcodeproj`. iOS 17, iPhone only, location usage text, Swift 5 mode with strict concurrency, local `OasisCore` package.
 - `app/Config/Base.xcconfig` holds the bundle ID and team. It optionally includes `app/Config/Local.xcconfig` (not in git) for Mike's Team ID. See `Local.xcconfig.example`.
-- `OasisCore/` is a skeleton package (placeholder type, one fixture, two tests). `swift test` passes on Linux with Swift 6.1.2. Task 3 fills it.
-- The container has no Swift toolchain by default. This session installed Swift 6.1.2 in `/opt/swift`. A SessionStart hook could automate this.
+- The container has no Swift toolchain by default. Install Swift 6.1.2 for Ubuntu 24.04 from download.swift.org into `/opt/swift`, then add `/opt/swift/usr/bin` to `PATH`. A SessionStart hook could automate this.
 - `app/XCODE_SETUP.md` now describes the XcodeGen steps first.
+
+### OasisCore (task 3) — DONE
+Swift package, Foundation only. `cd OasisCore && swift test` passes on Linux (Swift 6.1.2, 58 tests).
+- `Coordinate` — own lat/lon type, haversine distance.
+- `SpotKind`, `WaterSpot` — same Codable keys as the phase 1 disk cache.
+- `OSMRules` — `classify(_:)` and `exclusion(for:)`. Same rules as the app and the explorer.
+- `BoundingBox`, `TileKey`, `Geo` — 0.25° tile math. `BoundingBox(covering:)` is now failable (nil for no tiles).
+- `OverpassQuery` — box and `around` queries, `tags` or `meta` output, form-body encoding.
+- `OverpassResponse` — parser. It throws `OverpassParseError.incomplete` when Overpass returns HTTP 200 with a runtime-error remark (timeout). The phase 1 app does not check this, so it can cache a partial tile as complete for 7 days. Task 4 fixes the app.
+- `Route`, `RouteAnalysis` — ported from the explorer route check: projection, point at distance, slice, sampling for `around`, stops within a buffer, gaps, longest gaps, next stop.
+- Fixtures in `OasisCore/Tests/OasisCoreTests/Fixtures/` are synthetic Overpass JSON.
+- The route math was checked against the explorer JavaScript in Node with the same inputs. The numbers match.
+
+Differences from the explorer (on purpose):
+- The explorer shows excluded points as red "private" markers. OasisCore drops them. `OSMRules.exclusion(for:)` gives the reason if a caller needs it.
+- `Route.point(atDistance:)` clamps to the route ends. The explorer extrapolates.
+- `Route.sampled` does not add the last point two times.
+- The explorer does not check the Overpass `remark`.
+
+Not ported yet: GPX parsing. On Linux, `XMLParser` is in `FoundationXML`. Add it with phase 3.
+
+Until task 4, the app still has its own copies of this logic. The app does not import OasisCore yet.
 
 ### app/Oasis (phase 1 draft) — NOT COMPILED
 Written in chat with no Xcode. Expect small build errors.
