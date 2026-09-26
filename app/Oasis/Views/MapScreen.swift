@@ -8,7 +8,8 @@ struct MapScreen: View {
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var visibleRegion: MKCoordinateRegion?
     @State private var selectedID: String?
-    @State private var enabledKinds = Set(SpotKind.allCases)
+    /// Restaurants are off by default: the largest group and the least useful for a quick stop.
+    @State private var enabledKinds = Set(SpotKind.allCases).subtracting([.restaurant])
     @State private var verifiedOnly = false
 
     /// More markers than this makes the map slow, so show the nearest ones.
@@ -41,16 +42,19 @@ struct MapScreen: View {
         }
         .onMapCameraChange(frequency: .onEnd) { context in
             visibleRegion = context.region
-            store.regionChanged(context.region, loadBuyWater: enabledKinds.contains(.buy))
+            store.regionChanged(context.region, loadBuyWater: loadBuyWater)
         }
-        .onChange(of: enabledKinds.contains(.buy)) { _, loadBuyWater in
-            if loadBuyWater, let visibleRegion {
+        .onChange(of: enabledKinds) { old, new in
+            // Load buy water when a buy category turns on.
+            let added = new.subtracting(old)
+            if loadBuyWater, !added.isDisjoint(with: SpotKind.buyKinds), let visibleRegion {
                 store.regionChanged(visibleRegion, loadBuyWater: true)
             }
         }
         .safeAreaInset(edge: .top) {
             FilterBar(enabledKinds: $enabledKinds,
                       verifiedOnly: $verifiedOnly,
+                      counts: countsInView,
                       isLoading: store.isLoading,
                       statusMessage: store.statusMessage)
         }
@@ -60,6 +64,20 @@ struct MapScreen: View {
                 .presentationDragIndicator(.visible)
         }
         .task { location.start() }
+    }
+
+    private var loadBuyWater: Bool { !enabledKinds.isDisjoint(with: SpotKind.buyKinds) }
+
+    /// Points in the view for each kind, for the chip counts. Ignores the kind filter.
+    private var countsInView: [SpotKind: Int] {
+        let now = Date()
+        var counts: [SpotKind: Int] = [:]
+        for spot in store.spots.values
+        where (visibleRegion?.contains(spot.coordinate) ?? true)
+            && (!verifiedOnly || spot.verification(asOf: now) == .verified) {
+            counts[spot.kind, default: 0] += 1
+        }
+        return counts
     }
 
     /// Markers and clusters for the current view.
@@ -113,6 +131,7 @@ struct MapScreen: View {
 private struct FilterBar: View {
     @Binding var enabledKinds: Set<SpotKind>
     @Binding var verifiedOnly: Bool
+    let counts: [SpotKind: Int]
     let isLoading: Bool
     let statusMessage: String?
 
@@ -168,7 +187,8 @@ private struct FilterBar: View {
         return Button {
             if isOn { enabledKinds.remove(kind) } else { enabledKinds.insert(kind) }
         } label: {
-            Label(kind.label, systemImage: kind.symbol)
+            Label("\(kind.label) \(counts[kind, default: 0])", systemImage: kind.symbol)
+                .monospacedDigit()
                 .font(.subheadline.weight(.medium))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
@@ -205,7 +225,7 @@ private struct ClusterBadge: View {
     }
 
     private var tint: Color {
-        cluster.layer == .buyWater ? SpotKind.buy.tint : SpotKind.fountain.tint
+        cluster.layer == .buyWater ? SpotKind.convenience.tint : SpotKind.fountain.tint
     }
 }
 

@@ -88,7 +88,7 @@ struct SpotDetailSheet: View {
 
     private var warning: String? {
         if spot.kind == .business { return "This is a business. Ask the staff before you fill your bottle." }
-        if spot.kind == .buy { return "You must buy water here. Check the opening hours." }
+        if !spot.kind.isFree { return "You must buy water here. Check the opening hours." }
         if spot.seasonal != nil { return "This water can be off for part of the year." }
         return nil
     }
