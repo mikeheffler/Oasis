@@ -79,7 +79,13 @@ Known risks to check on first Mac build:
 - Swift 6 / default-MainActor isolation warnings (Xcode 26 templates).
 - `MKPlacemark` / `MKMapItem(placemark:)` deprecation on iOS 26; use the new `MKMapItem` initializer behind `#available`.
 
-### tools/explorer/index.html — NOT RUN IN A BROWSER YET
+### tools/explorer/index.html — LIVE on GitHub Pages
+- Base map: OSM standard, plus CyclOSM in the layer menu. CARTO was removed (it needs an API key on public hosts).
+- Same rules as OasisCore: buy water, problem tags, and verification. A parity check (35 tag cases, 13 date strings, both query texts) matched the Swift code.
+- Buy water loads only with the GPX route check. Unverified points are faded. "Verified only" filter. Hidden points show their reason in the popup.
+- Tested in headless Chromium with the fixture as a mock Overpass response. Mike tested the live page in Chrome.
+
+Earlier notes:
 Leaflet map with the same query and classification. Features: auto-load by view, filter chips with counts, color by last update, data-quality stats, GPX route check (water within a buffer, three longest gaps), GeoJSON export, locate button. It cannot run inside claude.ai artifacts (network blocked). It must be hosted (GitHub Pages).
 
 ### Validation status

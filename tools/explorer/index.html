@@ -104,6 +104,8 @@ h3{font-size:15px;font-weight:600;margin:16px 0 0}
       <section>
         <h2>Show</h2>
         <div id="chips" class="chips"></div>
+        <label class="check"><input type="checkbox" id="verified-only"> Verified only (survey in the last 24 months)</label>
+        <p class="hint">Faded points are unverified. Buy water (stores, gas stations, cafes, restaurants, drink machines) loads only along a GPX route.</p>
         <div class="seg" role="radiogroup" aria-label="Color points by">
           <button type="button" role="radio" data-color="type" aria-checked="true">Color by type</button>
           <button type="button" role="radio" data-color="age" aria-checked="false">Color by last update</button>
@@ -143,10 +145,12 @@ const TILE = 0.25, MIN_ZOOM_AUTO = 11, MAX_TILES = 16, MI = 1609.344;
 const KINDS = {
   fountain: {label: 'Fountain', fill: '#1668C7', stroke: '#0B4F9C'},
   tap:      {label: 'Tap or spigot', fill: '#FFFFFF', stroke: '#1668C7'},
-  business: {label: 'Business', fill: '#C98210', stroke: '#8A5806'},
+  business: {label: 'Business (free)', fill: '#C98210', stroke: '#8A5806'},
+  buy:      {label: 'Buy water', fill: '#FFFFFF', stroke: '#C98210'},
   other:    {label: 'Other source', fill: '#5E6E7C', stroke: '#3B4852'},
-  excluded: {label: 'Private (app hides)', fill: '#FFFFFF', stroke: '#C0392B'}
+  hidden:   {label: 'Hidden by app', fill: '#FFFFFF', stroke: '#C0392B'}
 };
+const VERIFIED_MONTHS = 24;
 const AGE = [
   {max: 1, label: 'Under 1 year', fill: '#0B4F9C'},
   {max: 3, label: '1 to 3 years', fill: '#3F86D1'},
@@ -156,8 +160,8 @@ const AGE = [
 
 const state = {
   spots: new Map(), markers: new Map(), loadedTiles: new Set(),
-  enabled: new Set(['fountain', 'tap', 'business', 'other']),
-  colorBy: 'type', loading: false, pending: false, route: null, gapLayer: null
+  enabled: new Set(['fountain', 'tap', 'business', 'buy', 'other']),
+  verifiedOnly: false, colorBy: 'type', loading: false, pending: false, route: null, gapLayer: null
 };
 
 const $ = id => document.getElementById(id);
@@ -196,26 +200,78 @@ const renderer = L.canvas({padding: 0.5});
 const routeLayer = L.layerGroup().addTo(map);
 const pointLayer = L.layerGroup().addTo(map);
 
-/* ---------- Data model (same rules as the iOS app) ---------- */
+/* ---------- Data model (same rules as OasisCore: OSMRules, VerificationRules) ---------- */
+const PROBLEM_STATUS = new Set(['broken', 'closed', 'out_of_order', 'out_of_service', 'non-operational', 'non_operational']);
+const FREE_BIZ = new Set(['cafe', 'restaurant', 'fast_food', 'pub', 'bar', 'fuel', 'ice_cream', 'bicycle_rental']);
+const BUY_SHOPS = ['convenience', 'general', 'kiosk', 'supermarket'];
+const BUY_AMENITIES = ['cafe', 'fast_food', 'fuel', 'restaurant'];
+const DRINK_VENDING = ['bottled_water', 'cold_drinks', 'drinks', 'water'];
+
+function sellsDrinks(t) {
+  if (BUY_SHOPS.includes(t.shop) || BUY_AMENITIES.includes(t.amenity)) return true;
+  return t.amenity === 'vending_machine' && !!t.vending &&
+    t.vending.split(';').some(v => DRINK_VENDING.includes(v.trim()));
+}
+function problemIn(t) {
+  if (PROBLEM_STATUS.has(t.operational_status)) return `operational_status=${t.operational_status}`;
+  for (const k of ['disused', 'abandoned']) if (t[k] === 'yes') return `${k}=yes`;
+  return null;
+}
 function classify(t) {
   const a = t.amenity || '';
   if (a === 'drinking_water') return 'fountain';
   if (t.man_made === 'water_tap' || a === 'water_point') return 'tap';
   if (t['drinking_water:refill'] === 'yes') return 'business';
-  const biz = ['cafe','restaurant','fast_food','pub','bar','fuel','ice_cream','bicycle_rental'];
-  if (t.shop || biz.includes(a)) return 'business';
-  return 'other';
+  const sells = sellsDrinks(t);
+  if (t.drinking_water === 'yes' && (t.shop || FREE_BIZ.has(a) || sells)) return 'business';
+  return sells ? 'buy' : 'other';
 }
+/* Returns {kind} or {hidden: reason}. */
+function evaluate(t) {
+  const problem = problemIn(t);
+  if (problem) return {hidden: problem};
+  if (t.access === 'private' || t.access === 'no') return {hidden: `access=${t.access}`};
+  const sells = sellsDrinks(t);
+  if (t.drinking_water === 'no') return sells ? {kind: 'buy'} : {hidden: 'drinking_water=no'};
+  if (t.access === 'customers') return sells ? {kind: 'buy'} : {hidden: 'access=customers'};
+  return {kind: classify(t)};
+}
+
+/* OSM dates: YYYY, YYYY-MM, or YYYY-MM-DD (first day of the period, UTC). */
+function parseOsmDate(raw) {
+  const m = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$/.exec(raw.trim().slice(0, 10));
+  if (!m) return null;
+  const y = +m[1], mo = m[2] ? +m[2] : 1, d = m[3] ? +m[3] : 1;
+  if (mo < 1 || mo > 12) return null;
+  const t = Date.UTC(y, mo - 1, d);
+  return new Date(t).getUTCDate() === d ? t : null;
+}
+function surveyDate(tags) {
+  const limit = Date.now() + 864e5;
+  const dates = [tags.check_date, tags['survey:date']].filter(Boolean)
+    .flatMap(v => v.split(';')).map(parseOsmDate).filter(t => t != null && t <= limit);
+  return dates.length ? Math.max(...dates) : null;
+}
+/* Verified = survey date within VERIFIED_MONTHS of today (whole UTC days). An edit does not count. */
+function isVerified(tags) {
+  const d = surveyDate(tags);
+  if (d == null) return false;
+  const now = new Date();
+  const y = now.getUTCFullYear(), m = now.getUTCMonth() - VERIFIED_MONTHS;
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return d >= Date.UTC(y, m, Math.min(now.getUTCDate(), lastDay));
+}
+
 function toSpot(el) {
   const lat = el.lat ?? el.center?.lat, lon = el.lon ?? el.center?.lon;
   if (lat == null || lon == null) return null;
   const tags = el.tags || {};
-  if (tags.drinking_water === 'no') return null;
-  const excluded = ['private','no','customers'].includes(tags.access);
+  const r = evaluate(tags);
   return {id: `${el.type}/${el.id}`, type: el.type, osmId: el.id, lat, lon, tags,
-          kind: excluded ? 'excluded' : classify(tags),
+          kind: r.kind || 'hidden', hiddenReason: r.hidden || null, verified: isVerified(tags),
           timestamp: el.timestamp, user: el.user, version: el.version, _route: null};
 }
+const visible = s => state.enabled.has(s.kind) && (!state.verifiedOnly || s.verified || s.kind === 'hidden');
 function ageYears(s) {
   const raw = s.tags.check_date || s.tags['survey:date'] || s.timestamp;
   const d = raw ? new Date(raw) : null;
@@ -228,13 +284,22 @@ function fmtDate(ts) {
 }
 
 /* ---------- Overpass ---------- */
-function buildQuery(area, timeout = 60) {
+/* Same as OverpassQuery.query in OasisCore. Buy water loads along a route only. */
+function buildQuery(area, timeout = 60, withBuy = false) {
+  const lines = [
+    '["amenity"="drinking_water"]["drinking_water"!="no"]',
+    '["amenity"="water_point"]["drinking_water"!="no"]',
+    '["drinking_water"="yes"]',
+    '["drinking_water:refill"="yes"]'
+  ];
+  if (withBuy) lines.push(
+    `["shop"~"^(${BUY_SHOPS.join('|')})$"]`,
+    `["amenity"~"^(${BUY_AMENITIES.join('|')})$"]`,
+    `["amenity"="vending_machine"]["vending"~"(^|;)(${DRINK_VENDING.join('|')})(;|$)"]`
+  );
   return `[out:json][timeout:${timeout}];
 (
-  nwr["amenity"="drinking_water"]["drinking_water"!="no"]${area};
-  nwr["amenity"="water_point"]["drinking_water"!="no"]${area};
-  nwr["drinking_water"="yes"]${area};
-  nwr["drinking_water:refill"="yes"]${area};
+${lines.map(l => `  nwr${l}${area};`).join('\n')}
 );
 out center meta;`;
 }
@@ -251,8 +316,8 @@ async function overpass(query) {
   }
   throw lastErr || new Error('Could not reach the data server.');
 }
-async function runQuery(area, timeout) {
-  const data = await overpass(buildQuery(area, timeout));
+async function runQuery(area, timeout, withBuy = false) {
+  const data = await overpass(buildQuery(area, timeout, withBuy));
   let added = 0;
   for (const el of data.elements || []) {
     const s = toSpot(el);
@@ -299,20 +364,22 @@ async function loadView(manual) {
 
 /* ---------- Rendering ---------- */
 function styleFor(s) {
-  if (state.colorBy === 'age' && s.kind !== 'excluded') {
+  if (state.colorBy === 'age' && s.kind !== 'hidden') {
     const y = ageYears(s);
     const b = AGE.find(a => y != null && y < a.max) || AGE[AGE.length - 1];
     return {radius: 6, fillColor: b.fill, color: '#14212B', weight: 1, fillOpacity: 1};
   }
   const k = KINDS[s.kind];
-  const ring = s.kind === 'tap' || s.kind === 'excluded';
-  return {radius: ring ? 5 : 6, fillColor: k.fill, color: k.stroke, weight: ring ? 2.5 : 1.5, fillOpacity: 1};
+  const ring = k.fill === '#FFFFFF';
+  const faded = !s.verified && s.kind !== 'hidden';
+  return {radius: ring ? 5 : 6, fillColor: k.fill, color: k.stroke, weight: ring ? 2.5 : 1.5,
+          fillOpacity: faded ? 0.55 : 1, opacity: faded ? 0.7 : 1};
 }
 function render() {
   pointLayer.clearLayers();
   state.markers.clear();
   for (const s of state.spots.values()) {
-    if (!state.enabled.has(s.kind)) continue;
+    if (!visible(s)) continue;
     const m = L.circleMarker([s.lat, s.lon], {renderer, ...styleFor(s)});
     m.bindPopup(() => popupHTML(s), {maxWidth: 320});
     pointLayer.addLayer(m);
@@ -331,6 +398,8 @@ function popupHTML(s) {
     <div class="pop-kind" style="--c:${k.stroke === '#FFFFFF' ? '#14212B' : k.stroke}">${esc(k.label)}</div>
     <div class="pop-name">${esc(t.name || 'No name')}</div>
     ${route}
+    ${s.hiddenReason ? `<div class="pop-meta"><strong>The app hides this point:</strong> ${esc(s.hiddenReason)}</div>` : ''}
+    <div class="pop-meta">${s.verified ? '<strong>Verified</strong>: survey' : 'Unverified: no survey'} in the last ${VERIFIED_MONTHS} months</div>
     <div class="pop-meta">Last check: ${checked ? esc(checked) : 'not recorded'}</div>
     <div class="pop-meta">Last edit: ${fmtDate(s.timestamp)} by ${esc(s.user || 'unknown')} (version ${esc(s.version ?? '?')})</div>
     <div class="pop-links">
@@ -347,7 +416,7 @@ function spotsInView() {
 }
 function renderChips() {
   const counts = {};
-  for (const s of spotsInView()) counts[s.kind] = (counts[s.kind] || 0) + 1;
+  for (const s of spotsInView()) if (!state.verifiedOnly || s.verified || s.kind === 'hidden') counts[s.kind] = (counts[s.kind] || 0) + 1;
   $('chips').innerHTML = Object.entries(KINDS).map(([key, k]) =>
     `<button type="button" class="chip" data-kind="${key}" aria-pressed="${state.enabled.has(key)}">
       <span class="sw" style="background:${k.fill};border:2px solid ${k.stroke}"></span>${esc(k.label)}
@@ -360,7 +429,7 @@ function renderLegend() {
     : '';
 }
 function updateStats() {
-  const list = spotsInView().filter(s => s.kind !== 'excluded' && state.enabled.has(s.kind));
+  const list = spotsInView().filter(s => s.kind !== 'hidden' && visible(s));
   const n = list.length;
   if (!n) { $('quality').innerHTML = '<dt>No points in this view yet.</dt><dd></dd>'; renderChips(); return; }
   const pct = c => `${c.toLocaleString()} (${Math.round(100 * c / n)}%)`;
@@ -369,7 +438,8 @@ function updateStats() {
   const median = years.length ? years[Math.floor(years.length / 2)] : '—';
   $('quality').innerHTML = [
     ['Points shown', n.toLocaleString()],
-    ['With a check date', pct(has(s => s.tags.check_date || s.tags['survey:date']))],
+    [`Verified (survey in last ${VERIFIED_MONTHS} months)`, pct(has(s => s.verified))],
+    ['With any check date', pct(has(s => s.tags.check_date || s.tags['survey:date']))],
     ['Bottle filler tagged', pct(has(s => s.tags.bottle === 'yes'))],
     ['Seasonal tagged', pct(has(s => s.tags.seasonal && s.tags.seasonal !== 'no'))],
     ['With a name', pct(has(s => s.tags.name))],
@@ -449,7 +519,7 @@ async function loadRouteData() {
   state.loading = true;
   setStatus('Loading water along the route…');
   try {
-    const added = await runQuery(`(around:${Math.round(buf * 1.15)},${coords})`, 120);
+    const added = await runQuery(`(around:${Math.round(buf * 1.15)},${coords})`, 120, true);
     r.loadedBuffer = buf;
     setStatus(`Added ${added.toLocaleString()} points along the route.`);
   } catch (e) {
@@ -468,10 +538,10 @@ function analyzeRoute() {
   const stops = [];
   for (const s of state.spots.values()) {
     s._route = null;
-    if (s.kind === 'excluded') continue;
+    if (s.kind === 'hidden') continue;
     if (s.lat < r.box.s - padLat || s.lat > r.box.n + padLat || s.lon < r.box.w - padLon || s.lon > r.box.e + padLon) continue;
     const p = project(r, s.lat, s.lon);
-    if (p.d <= buf) { s._route = p; if (state.enabled.has(s.kind)) stops.push(s); }
+    if (p.d <= buf) { s._route = p; if (visible(s)) stops.push(s); }
   }
   stops.sort((a, b) => a._route.along - b._route.along);
   const marks = [0, ...stops.map(s => s._route.along), r.total];
@@ -557,6 +627,11 @@ $('gpx').addEventListener('change', async e => {
     $('route-out').innerHTML = `<p class="status err">${esc(err.message)}</p>`;
   }
 });
+$('verified-only').addEventListener('change', e => {
+  state.verifiedOnly = e.target.checked;
+  if (state.route) analyzeRoute();
+  render();
+});
 $('buffer').addEventListener('change', () => { if (state.route) loadRouteData(); });
 $('route-out').addEventListener('click', e => {
   const g = e.target.closest('[data-gap]'), s = e.target.closest('[data-spot]');
@@ -569,9 +644,10 @@ $('route-out').addEventListener('click', e => {
 });
 $('export').addEventListener('click', () => {
   const b = map.getBounds();
-  const features = [...state.spots.values()].filter(s => state.enabled.has(s.kind) && b.contains([s.lat, s.lon]))
+  const features = [...state.spots.values()].filter(s => visible(s) && b.contains([s.lat, s.lon]))
     .map(s => ({type: 'Feature', geometry: {type: 'Point', coordinates: [s.lon, s.lat]},
-      properties: {osm_id: s.id, app_kind: s.kind, last_edit: s.timestamp, ...s.tags}}));
+      properties: {osm_id: s.id, app_kind: s.kind, app_hidden_reason: s.hiddenReason, app_verified: s.verified,
+                   last_edit: s.timestamp, ...s.tags}}));
   const blob = new Blob([JSON.stringify({type: 'FeatureCollection', features}, null, 1)], {type: 'application/geo+json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
