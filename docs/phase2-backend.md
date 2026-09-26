@@ -50,7 +50,7 @@ Not in phase 2: photos, OSM upload, GPX routes, offline route download. See sect
 
 **Load on Overpass:** about 28 queries per week. This is far below the public server limits. If we later add many states, we should switch to regional extract files from Geofabrik, which do not use Overpass at all.
 
-**Secrets:** the sync writes with the Supabase **service role key**. This key is stored only as a GitHub Actions secret. It is never in the app or in git.
+**Secrets:** the sync writes with the Supabase **secret key** (old name: service role key). This key is stored only as a GitHub Actions secret. It is never in the app or in git.
 
 ## 4. Data model
 
@@ -132,7 +132,7 @@ This extends `VerificationRules` in `OasisCore`, with tests. The server sends th
 ## 6. Access rules (row-level security)
 
 - A helper function `is_moderator()` checks `profiles.role`. It is `security definer` with a fixed `search_path`.
-- `osm_points`: everyone can read. Nobody can write through the API. Only the sync writes, with the service role key.
+- `osm_points`: everyone can read. Nobody can write through the API. Only the sync writes, with the secret key.
 - `community_spots`: everyone can read approved spots. People can read their own pending spots. Signed-in people can insert a spot only as `pending` and only as themselves. Only moderators can change the status.
 - `spot_reports`: signed-in people can insert a report only as themselves. People can read their own reports. Moderators can read all reports. The public map sees only the latest report type and date, through `spots_in_bbox`. It never sees who reported.
 - `profiles`: people can read and change their own display name. Only an admin can change a role.
@@ -189,16 +189,30 @@ This extends `VerificationRules` in `OasisCore`, with tests. The server sends th
 
 ## 13. What Mike must do
 
-I cannot create accounts or see secrets. You must do these steps:
+I cannot create accounts or see secrets. You must do these steps.
 
-1. Create a Supabase project at supabase.com. Choose a US region near Colorado.
-2. In the project, turn on the **PostGIS** extension (Database → Extensions).
-3. Send me the **project URL** and the **anon (public) key**. The anon key is safe to put in the app, because RLS protects the data.
-4. In GitHub → repo Settings → Secrets and variables → Actions, add:
-   - `SUPABASE_URL`
-   - `SUPABASE_SERVICE_ROLE_KEY` — **never** send this key to anyone, and never put it in a chat or in git.
-   - `SUPABASE_DB_URL` — the database connection string, for applying migrations from CI.
-5. In Supabase Auth, turn on email sign-in with a one-time code.
+**Project (done 2026-09-26):**
+- Project ID (ref): `scbkoxbdzaipkxwyvrql`
+- API URL: `https://scbkoxbdzaipkxwyvrql.supabase.co` (checked: it answers)
+- The API URL and the project ID are not secret.
+
+**PostGIS: no action.** The first migration turns it on with `create extension if not exists postgis with schema extensions;`.
+
+**Keys.** Supabase renamed its keys. The dashboard can change, so look for these names:
+
+| Name now | Old name | Secret? | Where it goes |
+|---|---|---|---|
+| Publishable key (`sb_publishable_…`) | anon key | No. RLS protects the data. | Send it to Claude. It goes in the app. |
+| Secret key (`sb_secret_…`) | service_role key | **Yes.** It skips all access rules. | Only a GitHub secret. Never in a chat or in git. |
+
+To find them: open the project, then **Project Settings → API Keys**. The old keys are on a "Legacy API keys" tab. The **Connect** button at the top of the project page also shows the URL and the publishable key.
+
+**GitHub secrets.** In GitHub → repo Settings → Secrets and variables → Actions → New repository secret, add:
+1. `SUPABASE_URL` = `https://scbkoxbdzaipkxwyvrql.supabase.co`
+2. `SUPABASE_SECRET_KEY` = the secret key.
+3. `SUPABASE_DB_URL` = the database connection string, for migrations from CI. Get it from **Connect** → the **Session pooler** string (port 5432), and put your database password in it. Use the pooler string, not the "direct connection" string: the direct one can need IPv6, and GitHub runners do not have IPv6.
+
+**Sign-in:** later, in step 2.5, I will tell you the exact Auth settings to change.
 
 ## 14. Open questions for Mike
 
