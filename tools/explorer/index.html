@@ -82,6 +82,15 @@ h3{font-size:15px;font-weight:600;margin:16px 0 0}
 .menu-btn a{display:flex!important;align-items:center;justify-content:center}
 .menu-btn svg{width:18px;height:18px}
 #scrim{display:none}
+/* Loading card: a bottle that fills, with the percent below. */
+#loader{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1000;pointer-events:none;background:rgba(255,255,255,.95);border-radius:16px;padding:14px 22px 12px;box-shadow:0 4px 18px rgba(20,33,43,.22);text-align:center;opacity:0;transition:opacity .25s}
+#loader.on{opacity:1}
+#loader svg{width:52px;height:78px;display:block;margin:0 auto}
+#loader-pct{margin-top:6px;font-size:22px;font-weight:700;color:var(--water);font-variant-numeric:tabular-nums;line-height:1.1}
+#loader-label{font-size:12px;color:var(--ink-2);margin-top:2px;max-width:180px}
+#loader .wave{animation:wave 1.3s linear infinite}
+@keyframes wave{from{transform:translateX(0)}to{transform:translateX(-24px)}}
+@media (prefers-reduced-motion:reduce){#loader .wave{animation:none}#loader{transition:none}}
 .leaflet-container{font-family:inherit;font-size:14px}
 .pop-kind{font-size:13px;font-weight:600;color:var(--c)}
 .pop-name{font-size:17px;font-weight:700;margin:2px 0 6px;line-height:1.25}
@@ -162,6 +171,27 @@ h3{font-size:15px;font-weight:600;margin:16px 0 0}
     </div>
   </aside>
   <div id="scrim" aria-hidden="true"></div>
+  <div id="loader" role="progressbar" aria-label="Loading map data" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden>
+    <svg viewBox="0 0 48 72" aria-hidden="true">
+      <defs>
+        <clipPath id="bottle-clip"><path d="M18 9h12v7c0 2.2 8 4.6 8 11v36a6 6 0 0 1-6 6H16a6 6 0 0 1-6-6V27c0-6.4 8-8.8 8-11z"/></clipPath>
+      </defs>
+      <path d="M18 9h12v7c0 2.2 8 4.6 8 11v36a6 6 0 0 1-6 6H16a6 6 0 0 1-6-6V27c0-6.4 8-8.8 8-11z" fill="#EAF3FC"/>
+      <g clip-path="url(#bottle-clip)">
+        <g id="bottle-water" transform="translate(0 69)">
+          <g class="wave">
+            <path d="M0 2q6-4 12 0t12 0 12 0 12 0 12 0 12 0 12 0 12 0V80H0z" fill="#1668C7" opacity=".9"/>
+            <path d="M0 2q6-4 12 0t12 0 12 0 12 0 12 0 12 0 12 0 12 0" fill="none" stroke="#8DB9EA" stroke-width="1.5"/>
+          </g>
+        </g>
+      </g>
+      <path d="M18 9h12v7c0 2.2 8 4.6 8 11v36a6 6 0 0 1-6 6H16a6 6 0 0 1-6-6V27c0-6.4 8-8.8 8-11z" fill="none" stroke="#0B4F9C" stroke-width="2.5" stroke-linejoin="round"/>
+      <rect x="16.5" y="2" width="15" height="7.5" rx="2" fill="#0B4F9C"/>
+      <path d="M15 34h2M15 44h2M15 54h2" stroke="#0B4F9C" stroke-width="1.5" stroke-linecap="round" opacity=".5"/>
+    </svg>
+    <div id="loader-pct">0%</div>
+    <div id="loader-label">Loading water points…</div>
+  </div>
   <div id="map" aria-label="Map of water points"></div>
 </div>
 
@@ -283,6 +313,58 @@ map.on('locationfound', e => {
 map.on('locationerror', e => setStatus('Could not get your location. ' + e.message, true));
 const routeLayer = L.layerGroup().addTo(map);
 const pointLayer = L.layerGroup().addTo(map);
+/* Loading card. Overpass does not report progress, so the percent is an estimate:
+   it eases toward 70% while the server works, follows the bytes while the data downloads,
+   and reaches 100% when the data is ready. Each query is an equal share of the total. */
+const Loader = (() => {
+  const el = $('loader');
+  map.getContainer().appendChild(el);
+  const water = $('bottle-water'), pct = $('loader-pct'), label = $('loader-label');
+  const EMPTY = 69, FULL = 13; /* water surface y in the bottle drawing */
+  let shown = 0, target = 0, t0 = 0, jobs = 1, job = 0, jobFrac = 0, active = false, raf = 0, hideTimer = 0;
+  function draw() {
+    const p = Math.round(shown * 100);
+    pct.textContent = `${p}%`;
+    el.setAttribute('aria-valuenow', String(p));
+    water.setAttribute('transform', `translate(0 ${(EMPTY - (EMPTY - FULL) * shown).toFixed(2)})`);
+  }
+  function frame() {
+    if (active) {
+      const waiting = 0.7 * (1 - Math.exp(-(performance.now() - t0) / 3000));
+      target = Math.min(0.99, (job + Math.max(waiting, jobFrac)) / jobs);
+    }
+    shown += (target - shown) * 0.12;
+    if (Math.abs(target - shown) < 0.002) shown = target;
+    draw();
+    if (active || shown < target) raf = requestAnimationFrame(frame);
+  }
+  return {
+    start(text, count = 1) {
+      clearTimeout(hideTimer);
+      cancelAnimationFrame(raf);
+      active = true; jobs = Math.max(1, count); job = 0; jobFrac = 0; shown = target = 0;
+      t0 = performance.now();
+      label.textContent = text;
+      el.hidden = false;
+      requestAnimationFrame(() => el.classList.add('on'));
+      raf = requestAnimationFrame(frame);
+    },
+    nextJob() { job = Math.min(job + 1, jobs - 1); jobFrac = 0; t0 = performance.now(); },
+    bytes(received, total) {
+      jobFrac = total ? 0.7 + 0.3 * Math.min(1, received / total)
+                      : Math.max(jobFrac, 0.7 + 0.25 * (1 - Math.exp(-received / 250000)));
+    },
+    done(ok = true) {
+      active = false;
+      if (ok) { target = 1; cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); }
+      hideTimer = setTimeout(() => {
+        el.classList.remove('on');
+        hideTimer = setTimeout(() => { el.hidden = true; }, 300);
+      }, ok ? 650 : 0);
+    }
+  };
+})();
+
 /* Close points group into one numbered icon. Free and buy water group separately. */
 const clusterGroup = layer => L.markerClusterGroup({
   maxClusterRadius: 50, disableClusteringAtZoom: 17, showCoverageOnHover: false, chunkedLoading: true,
@@ -406,7 +488,7 @@ ${lines.map(l => `  nwr${l}${area};`).join('\n')}
 );
 out center meta;`;
 }
-async function overpass(query) {
+async function overpass(query, onBytes) {
   let lastErr;
   for (const url of OVERPASS) {
     try {
@@ -414,13 +496,28 @@ async function overpass(query) {
         headers: {'Content-Type': 'application/x-www-form-urlencoded'}});
       if (res.status === 429) throw new Error('Too many requests to the data server. Wait one minute, then try again.');
       if (!res.ok) throw new Error(`The data server gave error ${res.status}.`);
-      return await res.json();
+      if (!onBytes || !res.body) return await res.json();
+      /* Read the body in chunks to report download progress. */
+      const total = Number(res.headers.get('Content-Length')) || 0;
+      const reader = res.body.getReader(), chunks = [];
+      let received = 0;
+      for (;;) {
+        const {done, value} = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+        onBytes(received, total);
+      }
+      const all = new Uint8Array(received);
+      let at = 0;
+      for (const c of chunks) { all.set(c, at); at += c.length; }
+      return JSON.parse(new TextDecoder().decode(all));
     } catch (e) { lastErr = e; }
   }
   throw lastErr || new Error('Could not reach the data server.');
 }
-async function runQuery(area, timeout, layers) {
-  const data = await overpass(buildQuery(area, timeout, layers));
+async function runQuery(area, timeout, layers, onBytes) {
+  const data = await overpass(buildQuery(area, timeout, layers), onBytes);
   let added = 0;
   for (const el of data.elements || []) {
     const s = toSpot(el);
@@ -453,22 +550,28 @@ async function loadView(manual) {
   if (!jobs.length) { setStatus(`${state.spots.size.toLocaleString()} points loaded in total.${note}`); return; }
   if (jobs.some(j => j.missing.length > MAX_TILES)) { setStatus('This area is too large. Zoom in, then try again.', true); return; }
   state.loading = true;
-  setStatus(jobs.length > 1 ? 'Loading water and buy water…' : jobs[0].layer === 'buy' ? 'Loading buy water…' : 'Loading water points…');
+  const loadingText = jobs.length > 1 ? 'Loading water and buy water…' : jobs[0].layer === 'buy' ? 'Loading buy water…' : 'Loading water points…';
+  setStatus(loadingText);
+  Loader.start(loadingText, jobs.length);
+  let ok = false;
   try {
     let added = 0;
-    for (const {layer, missing} of jobs) {
+    for (const [i, {layer, missing}] of jobs.entries()) {
+      if (i) Loader.nextJob();
       const xs = missing.map(t => t[0]), ys = missing.map(t => t[1]);
       const s = Math.min(...ys) * TILE, n = (Math.max(...ys) + 1) * TILE;
       const w = Math.min(...xs) * TILE, e = (Math.max(...xs) + 1) * TILE;
-      added += await runQuery(`(${s},${w},${n},${e})`, 60, [layer]);
+      added += await runQuery(`(${s},${w},${n},${e})`, 60, [layer], Loader.bytes);
       missing.forEach(([x, y]) => state.loadedTiles.add(`${layer}:${x},${y}`));
     }
     setStatus(`Added ${added.toLocaleString()} points. ${state.spots.size.toLocaleString()} loaded in total.${note}`);
     if (state.route) analyzeRoute();
     render();
+    ok = true;
   } catch (e) {
     setStatus(e.message, true);
   } finally {
+    Loader.done(ok);
     state.loading = false;
     if (state.pending) { state.pending = false; loadView(false); }
   }
@@ -652,13 +755,17 @@ async function loadRouteData() {
   const coords = samplePoints(r).map(p => `${p[0].toFixed(5)},${p[1].toFixed(5)}`).join(',');
   state.loading = true;
   setStatus('Loading water along the route…');
+  Loader.start('Loading water along the route…');
+  let ok = false;
   try {
-    const added = await runQuery(`(around:${Math.round(buf * 1.15)},${coords})`, 120, ['free', 'buy']);
+    const added = await runQuery(`(around:${Math.round(buf * 1.15)},${coords})`, 120, ['free', 'buy'], Loader.bytes);
     r.loadedBuffer = buf;
     setStatus(`Added ${added.toLocaleString()} points along the route.`);
+    ok = true;
   } catch (e) {
     setStatus(e.message + ' The route check uses only the points loaded before.', true);
   } finally {
+    Loader.done(ok);
     state.loading = false;
   }
   analyzeRoute();
