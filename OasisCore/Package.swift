@@ -13,6 +13,12 @@ let package = Package(
             name: "OasisCore",
             swiftSettings: [.enableExperimentalFeature("StrictConcurrency")]
         ),
+        // Backend sync tool (GitHub Actions). Not part of the app.
+        .executableTarget(
+            name: "oasis-sync",
+            dependencies: ["OasisCore"],
+            swiftSettings: [.enableExperimentalFeature("StrictConcurrency")]
+        ),
         .testTarget(
             name: "OasisCoreTests",
             dependencies: ["OasisCore"],
