@@ -26,6 +26,12 @@ These came from Claude, not from Mike. Confirm before you build on them.
 - Pages URL: https://mikeheffler.github.io/Oasis/
 - Mike must set Settings > Pages > Source to "GitHub Actions" one time.
 
+### CI (step 0) — ADDED
+- `.github/workflows/ci.yml` runs on every PR and on pushes to `main`:
+  - `OasisCore tests (Linux)` in the `swift:6.1` container.
+  - `iOS app build (macOS)` on `macos-15`: `swift test` for OasisCore, then `xcodegen` and `xcodebuild` for the iOS Simulator with no code signing. The last step lists all compiler errors and warnings.
+- Mike's decisions (2026-09-26): phase 2 (backend) before phase 3, Supabase, own phone first (no Apple Developer Program yet), first sync region is the state of Colorado.
+
 ### XcodeGen (task 2) — DONE, NOT RUN ON A MAC
 - `app/project.yml` makes `Oasis.xcodeproj`. iOS 17, iPhone only, location usage text, Swift 5 mode with strict concurrency, local `OasisCore` package.
 - `app/Config/Base.xcconfig` holds the bundle ID and team. It optionally includes `app/Config/Local.xcconfig` (not in git) for Mike's Team ID. See `Local.xcconfig.example`.

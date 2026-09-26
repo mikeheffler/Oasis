@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  core-tests:
+    name: OasisCore tests (Linux)
+    runs-on: ubuntu-latest
+    container: swift:6.1
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: swift test
+        working-directory: OasisCore
+        run: swift test
+
+  ios-build:
+    name: iOS app build (macOS)
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode version
+        run: xcodebuild -version
+      - name: OasisCore tests (macOS)
+        working-directory: OasisCore
+        run: swift test
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate the Xcode project
+        working-directory: app
+        run: xcodegen
+      - name: Build for the iOS Simulator
+        working-directory: app
+        shell: bash
+        run: |
+          xcodebuild build \
+            -project Oasis.xcodeproj -scheme Oasis \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee build.log
+          exit "${PIPESTATUS[0]}"
+      - name: Show compiler errors and warnings
+        if: always()
+        working-directory: app
+        shell: bash
+        run: grep -E "(error|warning):" build.log | sort -u || echo "No errors or warnings."
