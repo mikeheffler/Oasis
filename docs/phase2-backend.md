@@ -39,16 +39,16 @@ Not in phase 2: photos, OSM upload, GPX routes, offline route download. See sect
 **What:** all free-water and buy-water features in Colorado, with the same query as the app today (`OverpassQuery.query(in:layers:)`).
 
 **How:**
-- Split Colorado (about 37.0–41.0 N, 102.0–109.1 W) into 1° × 1° tiles (about 28 tiles).
+- Split Colorado (36.95–41.05 N, 102.0–109.1 W, with a small margin) into tiles on the whole-degree grid: 48 tiles, some of them thin edge strips (`SyncRegion.colorado`).
 - Query one tile at a time, with a pause between queries. Use `out center meta` so we also get the edit date and version.
 - Run `OSMRules.evaluate` on each feature. Store the kind, or the reason that the app hides it.
 - Upsert each feature into `osm_points` by its OSM id.
-- A feature that was in a tile before, but is not in a complete new sync of that tile, gets `removed_at`. We do not delete it at once, because reports can point to it.
+- A feature that was in a tile before, but is not in a complete new sync of that tile, gets `removed_at` (function `mark_removed_osm_points`, service role only). We do not delete it at once, because reports can point to it. A point that comes back gets `removed_at = null` again.
 - If Overpass returns a timeout remark for a tile (`OverpassParseError.incomplete`), keep the old data for that tile and try it again next run.
 
 **When:** weekly, plus a manual "run now" button (`workflow_dispatch`).
 
-**Load on Overpass:** about 28 queries per week. This is far below the public server limits. If we later add many states, we should switch to regional extract files from Geofabrik, which do not use Overpass at all.
+**Load on Overpass:** about 48 queries per week, 5 seconds apart, with at most 2 retries (60 s and 120 s later). This is far below the public server limits. If we later add many states, we should switch to regional extract files from Geofabrik, which do not use Overpass at all.
 
 **Secrets:** the sync writes with the Supabase **secret key** (old name: service role key). This key is stored only as a GitHub Actions secret. It is never in the app or in git.
 
@@ -213,6 +213,16 @@ To find them: open the project, then **Project Settings → API Keys**. The old 
 1. `SUPABASE_URL` = `https://scbkoxbdzaipkxwyvrql.supabase.co`
 2. `SUPABASE_SECRET_KEY` = the secret key.
 3. `SUPABASE_DB_URL` = the database connection string, for migrations from CI. Get it from **Connect** → the **Session pooler** string (port 5432), and put your database password in it. Use the pooler string, not the "direct connection" string: the direct one can need IPv6, and GitHub runners do not have IPv6.
+
+**Publishable key (received 2026-09-26, checked):** `sb_publishable_GIP_IsErO92gY3H5eCBBfg_OS-viury`. It is public by design. The app uses it in step 2.3.
+
+**First sync run (after the three secrets exist):**
+1. GitHub → Actions → **Backend** → **Run workflow**.
+2. For a first test, set "Only the first N tiles" to `2`. Select **Run workflow**.
+3. The "Apply database migrations" job creates the tables. The "Sync OSM points" job prints one line for each tile.
+4. When the test run is green, run it again with the tile field empty, for all of Colorado. After that, it runs every Monday.
+
+If `SUPABASE_DB_URL` fails: check that the password in it has no raw `@`, `:`, `/`, or `#`. These characters must be percent-encoded (for example `@` → `%40`), or you can reset the database password to letters and numbers only.
 
 **Sign-in:** later, in step 2.5, I will tell you the exact Auth settings to change.
 

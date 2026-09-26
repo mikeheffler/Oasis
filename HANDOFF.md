@@ -26,11 +26,19 @@ These came from Claude, not from Mike. Confirm before you build on them.
 - Pages URL: https://mikeheffler.github.io/Oasis/
 - Mike must set Settings > Pages > Source to "GitHub Actions" one time.
 
+### Phase 2, step 2.2: Colorado OSM sync — CODE DONE, WAITING FOR SECRETS
+- `OasisCore/Sources/OasisCore/OSMSync.swift`: `SyncRegion` (Colorado: 48 whole-degree tiles), `OSMPointRow` (one `osm_points` row, EWKT geometry, explicit `removed_at: null`), `OSMSync.rows(from:syncedAt:)` (same `OSMRules`; keeps hidden points with the reason; throws on an incomplete Overpass reply). 8 new tests, 107 total.
+- `OasisCore/Sources/oasis-sync/main.swift`: command-line tool. Per tile: Overpass (5 s apart, 2 retries), upsert in batches of 500 through PostgREST with the secret key in the `apikey` header, then `mark_removed_osm_points`. A failed tile keeps its old data, and the run exits 1. `--dry-run`, `--max-tiles N`, `--fixture file`.
+- `supabase/migrations/20260927000000_osm_sync.sql`: `mark_removed_osm_points` (service role only) + `supabase/tests/osm_sync.test.sql` (9 tests).
+- `.github/workflows/backend.yml`: applies migrations on merge (`supabase db push --db-url`), and syncs every Monday 09:17 UTC or from "Run workflow" (region, tile limit, migrate-only).
+- Not yet run against the live project: needs the secrets `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_DB_URL`. Overpass is blocked from the dev container, so the first real sync is the GitHub Action.
+- Publishable key received and checked (see docs/phase2-backend.md, section 13).
+
 ### Phase 2, step 2.1: database schema — DONE (PR pending)
 - `supabase/config.toml` (CLI settings) and `supabase/migrations/20260926230000_phase2_schema.sql`: PostGIS, `profiles`, `osm_points`, `community_spots`, `spot_reports`, GiST indexes, a profile for each new account, `is_moderator()`, anti-spam limits (1 report per person per point per hour, 20 submissions per day), review stamping, and the `spots_in_bbox` read function (max 2° box, 5000 rows, never returns reporter or submitter).
 - Privileges: the migration revokes Supabase's default table grants and grants only the columns the API needs. RLS on all four tables.
 - `supabase/tests/phase2_schema.test.sql`: 39 pgTAP tests (anon, two contributors, a moderator). CI job `Database tests (Supabase)` runs them with `supabase db start` + `supabase test db`.
-- Not applied to the live project yet. That needs `SUPABASE_DB_URL` (step 2.2).
+- Applied to the live project by the Backend workflow (step 2.2), once `SUPABASE_DB_URL` exists.
 - Kind values are in three places now: `OasisCore` `SpotKind`, the explorer, and the SQL check constraints and `spots_in_bbox`. Change all together.
 
 ### CI (step 0) — DONE, GREEN
