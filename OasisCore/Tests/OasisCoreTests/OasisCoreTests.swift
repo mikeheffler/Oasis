@@ -1,9 +1,9 @@
 import XCTest
-@testable import WaterFinderCore
+@testable import OasisCore
 
-final class WaterFinderCoreTests: XCTestCase {
+final class OasisCoreTests: XCTestCase {
     func testPackageBuilds() {
-        XCTAssertEqual(WaterFinderCore.version, "0.1.0")
+        XCTAssertEqual(OasisCore.version, "0.1.0")
     }
 
     func testFixturesAreBundled() throws {

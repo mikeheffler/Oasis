@@ -5,4 +5,4 @@
 DEVELOPMENT_TEAM = ABCDE12345
 
 // A personal team needs a bundle ID that no other developer uses.
-// WATERFINDER_BUNDLE_ID = com.yourname.WaterFinder
+// OASIS_BUNDLE_ID = com.yourname.Oasis

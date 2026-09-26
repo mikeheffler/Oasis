@@ -1,4 +1,4 @@
-# HANDOFF — WaterFinder
+# HANDOFF — Oasis
 
 Date: 2026-09-25. Written at the end of a Claude.ai chat session, for the first Claude Code session.
 
@@ -27,13 +27,13 @@ These came from Claude, not from Mike. Confirm before you build on them.
 - Mike must set Settings > Pages > Source to "GitHub Actions" one time.
 
 ### XcodeGen (task 2) — DONE, NOT RUN ON A MAC
-- `app/project.yml` makes `WaterFinder.xcodeproj`. iOS 17, iPhone only, location usage text, Swift 5 mode with strict concurrency, local `WaterFinderCore` package.
+- `app/project.yml` makes `Oasis.xcodeproj`. iOS 17, iPhone only, location usage text, Swift 5 mode with strict concurrency, local `OasisCore` package.
 - `app/Config/Base.xcconfig` holds the bundle ID and team. It optionally includes `app/Config/Local.xcconfig` (not in git) for Mike's Team ID. See `Local.xcconfig.example`.
-- `WaterFinderCore/` is a skeleton package (placeholder type, one fixture, two tests). `swift test` passes on Linux with Swift 6.1.2. Task 3 fills it.
+- `OasisCore/` is a skeleton package (placeholder type, one fixture, two tests). `swift test` passes on Linux with Swift 6.1.2. Task 3 fills it.
 - The container has no Swift toolchain by default. This session installed Swift 6.1.2 in `/opt/swift`. A SessionStart hook could automate this.
 - `app/XCODE_SETUP.md` now describes the XcodeGen steps first.
 
-### app/WaterFinder (phase 1 draft) — NOT COMPILED
+### app/Oasis (phase 1 draft) — NOT COMPILED
 Written in chat with no Xcode. Expect small build errors.
 - `Models/WaterSpot.swift` — `SpotKind`, `WaterSpot`, OSM tag classification.
 - `Models/MapTiles.swift` — 0.25° tile grid, bounding boxes.
@@ -58,9 +58,9 @@ Mike has not yet validated OSM coverage. Plan: use Overpass Turbo on his phone, 
 
 ## 4. First tasks for Claude Code (in order)
 1. **Repo setup.** Add `.gitignore` for Xcode/Swift, and a GitHub Actions workflow that deploys `tools/explorer/` to GitHub Pages. Tell Mike the Pages URL and the one repo setting he must change (Settings > Pages > Source: GitHub Actions).
-2. **XcodeGen.** Add `app/project.yml` so Mike can run `xcodegen` on his Mac instead of the manual steps. Include the location usage string, iOS 17 target, and the local `WaterFinderCore` package dependency.
-3. **WaterFinderCore package.** Move pure logic out of the app into `WaterFinderCore/` (Foundation only, no CoreLocation/MapKit): own `Coordinate` type, `SpotKind`, classification, tile math, Overpass query builder, Overpass JSON parser, route distance and gap analysis (port from the explorer's JS). Add unit tests with fixture JSON. Run `swift test` here on Linux.
-4. **Refactor app** to use `WaterFinderCore`. Keep app code thin.
+2. **XcodeGen.** Add `app/project.yml` so Mike can run `xcodegen` on his Mac instead of the manual steps. Include the location usage string, iOS 17 target, and the local `OasisCore` package dependency.
+3. **OasisCore package.** Move pure logic out of the app into `OasisCore/` (Foundation only, no CoreLocation/MapKit): own `Coordinate` type, `SpotKind`, classification, tile math, Overpass query builder, Overpass JSON parser, route distance and gap analysis (port from the explorer's JS). Add unit tests with fixture JSON. Run `swift test` here on Linux.
+4. **Refactor app** to use `OasisCore`. Keep app code thin.
 5. **Phase 2 design doc** in `docs/phase2-backend.md` for Mike to approve before any backend code: schema, RLS policies, auth, sync job, moderation flow (outline below).
 
 ## 5. Phase 2 outline (proposal)
@@ -75,4 +75,4 @@ Mike has not yet validated OSM coverage. Plan: use Overpass Turbo on his phone, 
 - Confirm Supabase and the roles above.
 - Which regions to sync first?
 - App Store release, TestFlight only, or personal use?
-- App name ("WaterFinder" is a working name; other apps use similar names).
+- App name: decided. Mike renamed the app to "Oasis" on 2026-09-26.

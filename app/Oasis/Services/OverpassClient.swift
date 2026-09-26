@@ -23,7 +23,7 @@ struct OverpassClient: WaterSpotSource {
         request.httpMethod = "POST"
         request.timeoutInterval = 30
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        request.setValue("WaterFinder-iOS/0.1 (personal prototype)", forHTTPHeaderField: "User-Agent")
+        request.setValue("Oasis-iOS/0.1 (personal prototype)", forHTTPHeaderField: "User-Agent")
         let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~")
         let encoded = Self.query(for: box).addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
         request.httpBody = Data(("data=" + encoded).utf8)

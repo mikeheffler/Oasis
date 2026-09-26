@@ -1,21 +1,21 @@
 // swift-tools-version: 5.10
 import PackageDescription
 
-// Pure logic for WaterFinder. Foundation only, so it builds and tests on Linux.
+// Pure logic for Oasis. Foundation only, so it builds and tests on Linux.
 let package = Package(
-    name: "WaterFinderCore",
+    name: "OasisCore",
     platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
-        .library(name: "WaterFinderCore", targets: ["WaterFinderCore"]),
+        .library(name: "OasisCore", targets: ["OasisCore"]),
     ],
     targets: [
         .target(
-            name: "WaterFinderCore",
+            name: "OasisCore",
             swiftSettings: [.enableExperimentalFeature("StrictConcurrency")]
         ),
         .testTarget(
-            name: "WaterFinderCoreTests",
-            dependencies: ["WaterFinderCore"],
+            name: "OasisCoreTests",
+            dependencies: ["OasisCore"],
             resources: [.copy("Fixtures")]
         ),
     ]
