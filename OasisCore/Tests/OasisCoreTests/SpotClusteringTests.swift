@@ -35,7 +35,7 @@ final class SpotClusteringTests: XCTestCase {
     }
 
     func testDenseStoresBecomeOneCluster() throws {
-        let stores = (0..<5).map { spot("b\($0)", .buy, 38.3001 + Double($0) * 1e-5, -122.2901 - Double($0) * 1e-5) }
+        let stores = (0..<5).map { spot("b\($0)", .convenience, 38.3001 + Double($0) * 1e-5, -122.2901 - Double($0) * 1e-5) }
         let items = SpotClustering.cluster(stores, cellSize: cell)
         let c = try XCTUnwrap(clustersIn(items).first)
         XCTAssertEqual(items.count, 1)
@@ -46,7 +46,7 @@ final class SpotClusteringTests: XCTestCase {
     }
 
     func testLayersClusterSeparately() {
-        let mixed = (0..<3).map { spot("b\($0)", .buy, 38.3001, -122.2901) }
+        let mixed = (0..<3).map { spot("b\($0)", .convenience, 38.3001, -122.2901) }
             + (0..<3).map { spot("f\($0)", .fountain, 38.3001, -122.2901) }
         let found = clustersIn(SpotClustering.cluster(mixed, cellSize: cell))
         XCTAssertEqual(Set(found.map(\.layer)), [.buyWater, .freeWater])
@@ -59,6 +59,14 @@ final class SpotClusteringTests: XCTestCase {
         XCTAssertEqual(clustersIn(SpotClustering.cluster(free, cellSize: cell)).first?.count, 3)
     }
 
+    func testBuyCategoriesShareOneLayer() {
+        let shops = [spot("c", .convenience, 38.3001, -122.2901), spot("g", .grocery, 38.3001, -122.2901),
+                     spot("r", .restaurant, 38.3001, -122.2901)]
+        let found = clustersIn(SpotClustering.cluster(shops, cellSize: cell))
+        XCTAssertEqual(found.map(\.count), [3])
+        XCTAssertEqual(found.first?.layer, .buyWater)
+    }
+
     func testSmallGroupsStaySingle() {
         let two = [spot("a", .fountain, 38.3001, -122.2901), spot("b", .fountain, 38.3001, -122.2901)]
         XCTAssertEqual(singlesIn(SpotClustering.cluster(two, cellSize: cell)).count, 2)
@@ -66,7 +74,7 @@ final class SpotClusteringTests: XCTestCase {
     }
 
     func testFarPointsDoNotCluster() {
-        let far = [spot("a", .buy, 38.30, -122.29), spot("b", .buy, 38.40, -122.29), spot("c", .buy, 38.30, -122.19)]
+        let far = [spot("a", .convenience, 38.30, -122.29), spot("b", .convenience, 38.40, -122.29), spot("c", .convenience, 38.30, -122.19)]
         XCTAssertEqual(singlesIn(SpotClustering.cluster(far, cellSize: cell)).count, 3)
     }
 
@@ -74,7 +82,7 @@ final class SpotClusteringTests: XCTestCase {
         var spots: [WaterSpot] = []
         for i in 0..<20 {
             for j in 0..<10 {
-                spots.append(spot("s\(i)-\(j)", j % 3 == 0 ? .buy : .fountain,
+                spots.append(spot("s\(i)-\(j)", j % 3 == 0 ? .grocery : .fountain,
                                   38.2 + Double(i) * 0.003, -122.4 + Double(j) * 0.004))
             }
         }
@@ -86,7 +94,7 @@ final class SpotClusteringTests: XCTestCase {
     }
 
     func testOutputIsDeterministic() {
-        let spots = (0..<30).map { spot("s\($0)", .buy, 38.3 + Double($0 % 6) * 0.01, -122.3 + Double($0 / 6) * 0.01) }
+        let spots = (0..<30).map { spot("s\($0)", .convenience, 38.3 + Double($0 % 6) * 0.01, -122.3 + Double($0 / 6) * 0.01) }
         let a = SpotClustering.cluster(spots, cellSize: 360.0 / 8192)
         let b = SpotClustering.cluster(spots.reversed(), cellSize: 360.0 / 8192)
         XCTAssertEqual(a.map(\.id), b.map(\.id))
