@@ -96,6 +96,7 @@ Known risks to check on first Mac build:
 - Base map: OSM standard, plus CyclOSM in the layer menu. CARTO was removed (it needs an API key on public hosts).
 - Same rules as OasisCore: buy water, problem tags, and verification. A parity check (35 tag cases, 13 date strings, both query texts) matched the Swift code.
 - Buy water has a chip (on by default). It loads in the map view when the view is at most 0.5° wide, and along a GPX route. Close points group into numbered clusters (Leaflet.markercluster 1.5.3, blue for free water, amber for buy water). A "Group close points" checkbox turns grouping off. The explorer uses the plugin's pixel-radius clustering, not `SpotClustering`, so cluster edges differ slightly from the app. Points are 28 px icon badges (solid color, white symbol, white border, shadow); a small check-mark badge marks a verified point. The explorer no longer fades unverified points (the app still does). "Verified only" filter. Hidden points show their reason in the popup.
+- Layout: the panel is a side menu. A menu button (sliders icon) on the map opens and closes it. On phones (≤760 px) it slides in over the map and is closed by default (close with ✕, the dimmed map, or Escape; picking a search result or route item closes it). On larger screens it is docked on the left and open by default; closing it gives the map the full width.
 - Tested in headless Chromium with the fixture as a mock Overpass response. Mike tested the live page in Chrome.
 
 Earlier notes:
