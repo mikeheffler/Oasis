@@ -14,15 +14,19 @@ public struct WaterSpot: Identifiable, Codable, Hashable, Sendable {
     public let longitude: Double
     public let kind: SpotKind
     public let tags: [String: String]
+    /// The latest Oasis user report, from the backend. Nil for Overpass data or no reports.
+    /// Optional, so disk caches written before this field still decode.
+    public let lastReport: LastReport?
 
     public init(id: String, source: Source, latitude: Double, longitude: Double,
-                kind: SpotKind, tags: [String: String]) {
+                kind: SpotKind, tags: [String: String], lastReport: LastReport? = nil) {
         self.id = id
         self.source = source
         self.latitude = latitude
         self.longitude = longitude
         self.kind = kind
         self.tags = tags
+        self.lastReport = lastReport
     }
 
     public var coordinate: Coordinate { Coordinate(latitude: latitude, longitude: longitude) }
@@ -39,6 +43,17 @@ public struct WaterSpot: Identifiable, Codable, Hashable, Sendable {
     public var osmURL: URL? {
         guard source == .openStreetMap else { return nil }
         return URL(string: "https://www.openstreetmap.org/\(id)")
+    }
+}
+
+/// The latest report for a point: its type ("working", "not_working", ...) and time.
+public struct LastReport: Codable, Hashable, Sendable {
+    public let type: String
+    public let date: Date
+
+    public init(type: String, date: Date) {
+        self.type = type
+        self.date = date
     }
 }
 

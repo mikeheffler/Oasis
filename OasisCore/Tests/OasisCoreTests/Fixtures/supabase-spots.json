@@ -1,0 +1,18 @@
+[
+  {"source": "osm", "id": "node/101", "lat": 39.7392, "lon": -104.9903, "kind": "fountain",
+   "name": "Civic Center fountain", "tags": {"amenity": "drinking_water", "name": "Civic Center fountain", "check_date": "2026-05-02"},
+   "survey_date": "2026-05-02", "osm_edited_at": "2026-05-02T18:11:09+00:00",
+   "last_report_type": "working", "last_report_at": "2026-09-29T15:04:05.123456+00:00"},
+  {"source": "osm", "id": "way/202", "lat": 39.75, "lon": -105.0, "kind": "convenience",
+   "name": null, "tags": {"shop": "convenience"},
+   "survey_date": null, "osm_edited_at": null, "last_report_type": null, "last_report_at": null},
+  {"source": "community", "id": "3f0c9a52-6b7e-4d1a-9c55-0a1b2c3d4e5f", "lat": 39.7, "lon": -104.95, "kind": "tap",
+   "name": "Trailhead tap", "tags": {"name": "Trailhead tap", "description": "Behind the restrooms"},
+   "survey_date": null, "osm_edited_at": null,
+   "last_report_type": "not_working", "last_report_at": "2026-09-30T08:00:00+00:00"},
+  {"source": "osm", "id": "node/303", "lat": 39.71, "lon": -104.96, "kind": "hovercraft_refill",
+   "name": null, "tags": {}, "survey_date": null, "osm_edited_at": null, "last_report_type": null, "last_report_at": null},
+  {"source": "osm", "id": "node/404", "lat": 39.72, "lon": -104.97, "kind": "tap",
+   "name": null, "tags": {"man_made": "water_tap", "level": 2},
+   "survey_date": null, "osm_edited_at": null, "last_report_type": null, "last_report_at": null}
+]

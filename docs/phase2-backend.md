@@ -150,7 +150,7 @@ This extends `VerificationRules` in `OasisCore`, with tests. The server sends th
 
 ## 8. App changes
 
-- Add the `supabase-swift` package (the only third-party dependency allowed by CLAUDE.md).
+- Step 2.3 reads the map with a plain `URLSession` call to `spots_in_bbox` (one request type, parsed in `OasisCore`). Add the `supabase-swift` package (the only third-party dependency allowed by CLAUDE.md) in step 2.5, for sign-in.
 - `SupabaseSource: WaterSpotSource` calls `spots_in_bbox`. The tile cache and the 7-day disk cache stay. With our own backend, the 0.5° limit for buy water can grow.
 - `OverpassClient` stays only for development, behind a debug setting. The app no longer calls Overpass by default.
 - New screens:
