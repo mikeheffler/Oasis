@@ -57,7 +57,7 @@ jobs:
     if: github.event_name != 'push' && !inputs.migrate_only
     runs-on: ubuntu-latest
     container: swift:6.1
-    timeout-minutes: 120
+    timeout-minutes: 240
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}

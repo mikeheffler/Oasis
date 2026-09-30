@@ -24,6 +24,16 @@ final class OSMSyncTests: XCTestCase {
         XCTAssertEqual(tiles.first, BoundingBox(south: 36.95, west: -109.10, north: 37, east: -109))
     }
 
+    func testColoradoSyncTiles() {
+        let tiles = SyncRegion.colorado.tiles(size: OSMSync.tileSize)
+        // 15 columns (109.5 W ... 102.5 W) x 10 rows (36.5 N ... 41.0 N), clipped to the region.
+        XCTAssertEqual(tiles.count, 150)
+        XCTAssertTrue(tiles.allSatisfy { $0.longitudeSpan <= 0.5 + 1e-9 && $0.latitudeSpan <= 0.5 + 1e-9 })
+        let area = tiles.map { $0.longitudeSpan * $0.latitudeSpan }.reduce(0, +)
+        let b = SyncRegion.colorado.bounds
+        XCTAssertEqual(area, b.longitudeSpan * b.latitudeSpan, accuracy: 1e-9)
+    }
+
     func testRegionLookup() {
         XCTAssertEqual(SyncRegion.named("Colorado"), .colorado)
         XCTAssertNil(SyncRegion.named("atlantis"))
@@ -31,7 +41,7 @@ final class OSMSyncTests: XCTestCase {
 
     func testQueryHasBothLayersAndMeta() {
         let q = OSMSync.query(for: BoundingBox(south: 39, west: -105, north: 40, east: -104))
-        XCTAssertTrue(q.hasPrefix("[out:json][timeout:180];"))
+        XCTAssertTrue(q.hasPrefix("[out:json][timeout:120];"))
         XCTAssertTrue(q.contains(#"nwr["amenity"="drinking_water"]"#))
         XCTAssertTrue(q.contains(#"nwr["shop"~"#))
         XCTAssertTrue(q.hasSuffix("out center meta;"))

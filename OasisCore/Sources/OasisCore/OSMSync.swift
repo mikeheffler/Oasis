@@ -76,8 +76,13 @@ public struct OSMPointRow: Encodable, Equatable, Sendable {
 }
 
 public enum OSMSync {
+    /// Tile side in degrees. Small tiles keep each query light: busy public Overpass
+    /// servers refuse or time out on 1° tiles with the buy-water layer.
+    public static let tileSize = 0.5
+
     /// The Overpass query for one tile: both layers, with edit metadata.
-    public static func query(for tile: BoundingBox, timeout: Int = 180) -> String {
+    /// A short requested timeout gets an earlier slot on a busy server.
+    public static func query(for tile: BoundingBox, timeout: Int = 120) -> String {
         OverpassQuery.query(in: .box(tile), layers: Set(SpotLayer.allCases), timeout: timeout, output: .meta)
     }
 

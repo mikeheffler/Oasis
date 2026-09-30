@@ -6,7 +6,8 @@
 // Environment (not needed with --dry-run or --fixture):
 //   SUPABASE_URL          https://<ref>.supabase.co
 //   SUPABASE_SECRET_KEY   sb_secret_… (GitHub Actions secret only)
-//   OVERPASS_URL          optional, default https://overpass-api.de/api/interpreter
+//   OVERPASS_URLS         optional, comma-separated servers; retries move to the next one.
+//                         Default: overpass-api.de, then overpass.kumi.systems.
 import Foundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking
@@ -79,23 +80,25 @@ func post(_ url: URL, body: Data, headers: [String: String], timeout: TimeInterv
     return data
 }
 
-/// Overpass with polite retries: wait 60 s, then 120 s. A 4xx other than 429 is not retried.
-func fetchTile(_ tile: BoundingBox, overpass: URL) async throws -> OverpassResponse {
+/// Overpass with polite retries: wait 30 s, then 60 s, and move to the next server each time.
+/// A 4xx other than 429 is not retried.
+func fetchTile(_ tile: BoundingBox, servers: [URL]) async throws -> OverpassResponse {
     let body = OverpassQuery.formBody(for: OSMSync.query(for: tile))
     var lastError: Error?
     for attempt in 0..<3 {
-        if attempt > 0 { try await Task.sleep(nanoseconds: UInt64(60 * attempt) * 1_000_000_000) }
+        if attempt > 0 { try await Task.sleep(nanoseconds: UInt64(30 * attempt) * 1_000_000_000) }
+        let server = servers[attempt % servers.count]
         do {
-            let data = try await post(overpass, body: body,
+            let data = try await post(server, body: body,
                                       headers: ["Content-Type": "application/x-www-form-urlencoded"],
-                                      timeout: 200)
+                                      timeout: 150)
             return try OverpassResponse.decode(data)
         } catch SyncError.http(let code, let text) where code != 429 && code < 500 {
             throw SyncError.http(code, text) // a bad request: a retry cannot help
         } catch {
             // 429, 5xx, network errors (not always URLError on Linux), a busy page that is not JSON.
             lastError = error
-            say("  attempt \(attempt + 1) failed: \(error)")
+            say("  attempt \(attempt + 1) (\(server.host ?? "?")) failed: \(error)")
         }
     }
     throw lastError!
@@ -153,7 +156,10 @@ if let path = options.fixture {
 }
 
 let env = ProcessInfo.processInfo.environment
-let overpass = URL(string: env["OVERPASS_URL"] ?? "https://overpass-api.de/api/interpreter")!
+let overpassServers: [URL] = (env["OVERPASS_URLS"] ?? "https://overpass-api.de/api/interpreter,https://overpass.kumi.systems/api/interpreter")
+    .split(separator: ",")
+    .compactMap { URL(string: $0.trimmingCharacters(in: .whitespaces)) }
+guard !overpassServers.isEmpty else { fail("OVERPASS_URLS has no valid URL") }
 var supabase: Supabase?
 if !options.dryRun {
     guard let base = env["SUPABASE_URL"].flatMap(URL.init(string:)), !(env["SUPABASE_URL"] ?? "").isEmpty else {
@@ -171,7 +177,7 @@ if !options.dryRun {
     }
 }
 
-let tiles = Array(options.region.tiles().prefix(options.maxTiles))
+let tiles = Array(options.region.tiles(size: OSMSync.tileSize).prefix(options.maxTiles))
 say("Region \(options.region.name): \(tiles.count) tiles. Run started \(runStartedText).\(options.dryRun ? " DRY RUN." : "")")
 
 var totalRows = 0, totalHidden = 0, totalRemoved = 0
@@ -180,7 +186,7 @@ for (i, tile) in tiles.enumerated() {
     let label = "tile \(i + 1)/\(tiles.count) [\(tile.south),\(tile.west) → \(tile.north),\(tile.east)]"
     do {
         if i > 0 { try await Task.sleep(nanoseconds: 5_000_000_000) } // be polite to Overpass
-        let rows = try OSMSync.rows(from: try await fetchTile(tile, overpass: overpass), syncedAt: runStarted)
+        let rows = try OSMSync.rows(from: try await fetchTile(tile, servers: overpassServers), syncedAt: runStarted)
         var removed = 0
         if let supabase {
             try await supabase.upsert(rows)

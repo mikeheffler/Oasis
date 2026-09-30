@@ -39,7 +39,7 @@ Not in phase 2: photos, OSM upload, GPX routes, offline route download. See sect
 **What:** all free-water and buy-water features in Colorado, with the same query as the app today (`OverpassQuery.query(in:layers:)`).
 
 **How:**
-- Split Colorado (36.95–41.05 N, 102.0–109.1 W, with a small margin) into tiles on the whole-degree grid: 48 tiles, some of them thin edge strips (`SyncRegion.colorado`).
+- Split Colorado (36.95–41.05 N, 102.0–109.1 W, with a small margin) into 0.5° tiles on a fixed grid: 150 tiles, some of them thin edge strips (`SyncRegion.colorado`, `OSMSync.tileSize`). The first live run (2026-09-30) used 1° tiles, and busy Overpass servers answered 504 "too busy"; 0.5° tiles keep each query light.
 - Query one tile at a time, with a pause between queries. Use `out center meta` so we also get the edit date and version.
 - Run `OSMRules.evaluate` on each feature. Store the kind, or the reason that the app hides it.
 - Upsert each feature into `osm_points` by its OSM id.
@@ -48,7 +48,7 @@ Not in phase 2: photos, OSM upload, GPX routes, offline route download. See sect
 
 **When:** weekly, plus a manual "run now" button (`workflow_dispatch`).
 
-**Load on Overpass:** about 48 queries per week, 5 seconds apart, with at most 2 retries (60 s and 120 s later). This is far below the public server limits. If we later add many states, we should switch to regional extract files from Geofabrik, which do not use Overpass at all.
+**Load on Overpass:** about 150 queries per week, 5 seconds apart, each asking for at most 120 s. At most 2 retries (30 s and 60 s later), each on the next server in `OVERPASS_URLS` (default: overpass-api.de, then overpass.kumi.systems). This is far below the public server limits. If we later add many states, we should switch to regional extract files from Geofabrik, which do not use Overpass at all.
 
 **Secrets:** the sync writes with the Supabase **secret key** (old name: service role key). This key is stored only as a GitHub Actions secret. It is never in the app or in git.
 
