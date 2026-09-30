@@ -26,6 +26,10 @@ These came from Claude, not from Mike. Confirm before you build on them.
 - Pages URL: https://mikeheffler.github.io/Oasis/
 - Mike must set Settings > Pages > Source to "GitHub Actions" one time.
 
+### Sync fix after the first live run (2026-09-30)
+- Run 3 (1° tiles) saved 0 rows in 26 minutes. A test from the dev container got `504 ... Dispatcher_Client::request_read_and_idx::timeout. The server is probably too busy` from overpass.kumi.systems after 103 s. Each failed tile cost about 6 minutes of retries, so the run could not finish in its 120-minute limit (and the old tool's buffered output would be lost on a time-out).
+- Fix: 0.5° tiles (150 for Colorado), requested Overpass timeout 120 s, retries after 30 s and 60 s that move to the next server in `OVERPASS_URLS`, job limit 240 minutes. Each tile is saved as soon as it arrives, so a stopped run keeps its finished tiles.
+
 ### Phase 2, step 2.3: app reads from the backend — DONE (PR pending), NOT RUN ON A DEVICE
 - `OasisCore/Sources/OasisCore/SupabaseSpots.swift`: `SupabaseSpotsAPI` (request body, split of a box into ≤ 0.5° pieces, parser for `spots_in_bbox` rows, PostgREST timestamp parser, truncation flag at 5000 rows), `BoundingBox.intersects`, `SyncRegion.coverage(includes:)`. `WaterSpot.lastReport` (type + date) for step 2.4; optional, so old caches decode. 9 new tests, 116 total.
 - App: `Services/SupabaseConfig.swift` (project URL + publishable key, both public) and `DataSources.makeDefault()` (backend; debug builds use Overpass when the scheme sets `OASIS_SOURCE=overpass`). `Services/SupabaseSource.swift` (plain `URLSession` POST to `rest/v1/rpc/spots_in_bbox` with the `apikey` header; no supabase-swift yet — it comes with sign-in in 2.5). The store shows "Oasis has data for Colorado only for now." outside the synced regions. Cache file `water-spots-cache-v5.json`.
@@ -33,7 +37,7 @@ These came from Claude, not from Mike. Confirm before you build on them.
 - `oasis-sync`: unbuffered output (CI logs show progress during a run), and a write check with the secret key before the Overpass work (a wrong key stops the run at once; checked with the publishable key → "permission denied").
 
 ### Phase 2, step 2.2: Colorado OSM sync — SECRETS ADDED, MIGRATIONS APPLIED (2026-09-30)
-- `OasisCore/Sources/OasisCore/OSMSync.swift`: `SyncRegion` (Colorado: 48 whole-degree tiles), `OSMPointRow` (one `osm_points` row, EWKT geometry, explicit `removed_at: null`), `OSMSync.rows(from:syncedAt:)` (same `OSMRules`; keeps hidden points with the reason; throws on an incomplete Overpass reply). 8 new tests, 107 total.
+- `OasisCore/Sources/OasisCore/OSMSync.swift`: `SyncRegion` (Colorado: 150 tiles of 0.5°, see the fix below), `OSMPointRow` (one `osm_points` row, EWKT geometry, explicit `removed_at: null`), `OSMSync.rows(from:syncedAt:)` (same `OSMRules`; keeps hidden points with the reason; throws on an incomplete Overpass reply). 8 new tests, 107 total.
 - `OasisCore/Sources/oasis-sync/main.swift`: command-line tool. Per tile: Overpass (5 s apart, 2 retries), upsert in batches of 500 through PostgREST with the secret key in the `apikey` header, then `mark_removed_osm_points`. A failed tile keeps its old data, and the run exits 1. `--dry-run`, `--max-tiles N`, `--fixture file`.
 - `supabase/migrations/20260927000000_osm_sync.sql`: `mark_removed_osm_points` (service role only) + `supabase/tests/osm_sync.test.sql` (9 tests).
 - `.github/workflows/backend.yml`: applies migrations on merge (`supabase db push --db-url`), and syncs every Monday 09:17 UTC or from "Run workflow" (region, tile limit, migrate-only).
