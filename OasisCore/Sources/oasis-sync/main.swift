@@ -187,11 +187,10 @@ let tiles = Array(options.region.tiles(size: OSMSync.tileSize).prefix(options.ma
 say("Region \(options.region.name): \(tiles.count) tiles. Run started \(runStartedText).\(options.dryRun ? " DRY RUN." : "")")
 
 var totalRows = 0, totalHidden = 0, totalRemoved = 0
-var failedTiles: [String] = []
-for (i, tile) in tiles.enumerated() {
-    let label = "tile \(i + 1)/\(tiles.count) [\(tile.south),\(tile.west) → \(tile.north),\(tile.east)]"
+
+/// Syncs one tile. Returns false when it failed; the tile then keeps its old data.
+@MainActor func sync(_ tile: BoundingBox, label: String) async -> Bool {
     do {
-        if i > 0 { try await Task.sleep(nanoseconds: 5_000_000_000) } // be polite to Overpass
         let rows = try OSMSync.rows(from: try await fetchTile(tile, servers: overpassServers), syncedAt: runStarted)
         var removed = 0
         if let supabase {
@@ -201,12 +200,31 @@ for (i, tile) in tiles.enumerated() {
         let hidden = rows.filter { $0.kind == nil }.count
         totalRows += rows.count; totalHidden += hidden; totalRemoved += removed
         say("\(label): \(rows.count) rows, \(hidden) hidden, \(removed) marked removed")
+        return true
     } catch {
-        // Keep the old data for this tile. It is tried again on the next run.
-        failedTiles.append(label)
         say("\(label): FAILED, old data kept. \(error)")
+        return false
     }
 }
 
-say("Done: \(totalRows) rows (\(totalHidden) hidden), \(totalRemoved) marked removed, \(failedTiles.count) failed tiles.")
+var failedTiles: [(label: String, tile: BoundingBox)] = []
+for (i, tile) in tiles.enumerated() {
+    if i > 0 { try await Task.sleep(nanoseconds: 10_000_000_000) } // be polite to Overpass (5 s gave many 429s)
+    let label = "tile \(i + 1)/\(tiles.count) [\(tile.south),\(tile.west) → \(tile.north),\(tile.east)]"
+    if await !sync(tile, label: label) { failedTiles.append((label, tile)) }
+}
+
+// Busy servers fail tiles at random. One more pass, after a pause, recovers most of them.
+if !failedTiles.isEmpty {
+    say("Second pass for \(failedTiles.count) failed tiles in 2 minutes.")
+    try await Task.sleep(nanoseconds: 120_000_000_000)
+    var stillFailed: [(label: String, tile: BoundingBox)] = []
+    for (i, failed) in failedTiles.enumerated() {
+        if i > 0 { try await Task.sleep(nanoseconds: 20_000_000_000) }
+        if await !sync(failed.tile, label: "retry \(failed.label)") { stillFailed.append(failed) }
+    }
+    failedTiles = stillFailed
+}
+
+say("Done: \(totalRows) rows (\(totalHidden) hidden), \(totalRemoved) marked removed, \(failedTiles.count) failed tiles.\(failedTiles.isEmpty ? "" : " Still failed: " + failedTiles.map(\.label).joined(separator: "; "))")
 exit(failedTiles.isEmpty ? 0 : 1)
