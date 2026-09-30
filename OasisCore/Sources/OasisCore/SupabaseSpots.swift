@@ -134,3 +134,25 @@ extension SyncRegion {
         all.contains { $0.bounds.intersects(box) }
     }
 }
+
+extension SupabaseSpotsAPI {
+    /// Reads a Supabase project URL from config text, such as a CI secret.
+    /// Accepts "https://<ref>.supabase.co", the same without "https://",
+    /// and a dashboard link ("https://supabase.com/dashboard/project/<ref>/…").
+    /// Trims spaces, line breaks, and a trailing slash. Returns nil for other text.
+    public static func projectURL(from text: String) -> URL? {
+        var s = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        while s.hasSuffix("/") { s.removeLast() }
+        guard !s.isEmpty, !s.contains(where: \.isWhitespace) else { return nil }
+        if !s.lowercased().hasPrefix("http:"), !s.lowercased().hasPrefix("https:") {
+            s = "https://" + s
+        }
+        guard let url = URL(string: s), let host = url.host?.lowercased(), !host.isEmpty else { return nil }
+        if host == "supabase.com" || host.hasSuffix(".supabase.com") {
+            let parts = url.path.split(separator: "/")
+            guard let i = parts.firstIndex(of: "project"), i + 1 < parts.count else { return nil }
+            return URL(string: "https://\(parts[i + 1]).supabase.co")
+        }
+        return url
+    }
+}

@@ -107,4 +107,24 @@ final class SupabaseSpotsTests: XCTestCase {
         let json = #"{"id":"node/9","source":"openStreetMap","latitude":38.1,"longitude":-122.1,"kind":"tap","tags":{}}"#
         XCTAssertNil(try JSONDecoder().decode(WaterSpot.self, from: Data(json.utf8)).lastReport)
     }
+
+    func testProjectURLAcceptsCommonForms() {
+        let want = "https://scbkoxbdzaipkxwyvrql.supabase.co"
+        for text in [
+            want,
+            want + "/",
+            "  " + want + "\n",
+            "scbkoxbdzaipkxwyvrql.supabase.co",
+            "https://supabase.com/dashboard/project/scbkoxbdzaipkxwyvrql/settings/general",
+        ] {
+            XCTAssertEqual(SupabaseSpotsAPI.projectURL(from: text)?.absoluteString, want, text.debugDescription)
+        }
+        XCTAssertEqual(SupabaseSpotsAPI.projectURL(from: "http://127.0.0.1:54321")?.absoluteString, "http://127.0.0.1:54321")
+    }
+
+    func testProjectURLRejectsBadText() {
+        for text in ["", "   ", "https://", "https://supabase.com/dashboard", "not a url"] {
+            XCTAssertNil(SupabaseSpotsAPI.projectURL(from: text), text.debugDescription)
+        }
+    }
 }

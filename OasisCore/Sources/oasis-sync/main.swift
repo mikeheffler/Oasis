@@ -162,9 +162,13 @@ let overpassServers: [URL] = (env["OVERPASS_URLS"] ?? "https://overpass-api.de/a
 guard !overpassServers.isEmpty else { fail("OVERPASS_URLS has no valid URL") }
 var supabase: Supabase?
 if !options.dryRun {
-    guard let base = env["SUPABASE_URL"].flatMap(URL.init(string:)), !(env["SUPABASE_URL"] ?? "").isEmpty else {
+    guard let raw = env["SUPABASE_URL"], !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
         fail("SUPABASE_URL is not set")
     }
+    guard let base = SupabaseSpotsAPI.projectURL(from: raw) else {
+        fail("SUPABASE_URL is not a valid project URL. Use https://<ref>.supabase.co")
+    }
+    say("Supabase project: \(base.host ?? "?")")
     guard let key = env["SUPABASE_SECRET_KEY"], !key.isEmpty else { fail("SUPABASE_SECRET_KEY is not set") }
     supabase = Supabase(base: base, key: key)
     // Check the key before the slow Overpass work: an empty box in the ocean changes nothing.
