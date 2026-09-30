@@ -115,6 +115,7 @@ final class SupabaseSpotsTests: XCTestCase {
             want + "/",
             "  " + want + "\n",
             "scbkoxbdzaipkxwyvrql.supabase.co",
+            "scbkoxbdzaipkxwyvrql",
             "https://supabase.com/dashboard/project/scbkoxbdzaipkxwyvrql/settings/general",
         ] {
             XCTAssertEqual(SupabaseSpotsAPI.projectURL(from: text)?.absoluteString, want, text.debugDescription)
