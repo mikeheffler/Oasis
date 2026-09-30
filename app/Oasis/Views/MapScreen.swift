@@ -3,7 +3,7 @@ import MapKit
 import OasisCore
 
 struct MapScreen: View {
-    @State private var store = WaterSpotStore(source: OverpassClient())
+    @State private var store = WaterSpotStore(source: DataSources.makeDefault())
     @State private var location = LocationManager()
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var visibleRegion: MKCoordinateRegion?

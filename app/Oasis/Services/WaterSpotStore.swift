@@ -40,6 +40,14 @@ final class WaterSpotStore {
             return
         }
 
+        // The backend has data only for the synced regions (Colorado for now).
+        let view = BoundingBox(region)
+        if source is SupabaseSource, !SyncRegion.coverage(includes: view) {
+            isLoading = false
+            statusMessage = "Oasis has data for Colorado only for now."
+            return
+        }
+
         var layers: [SpotLayer] = [.freeWater]
         var note: String?
         if loadBuyWater {
@@ -52,7 +60,6 @@ final class WaterSpotStore {
         }
 
         let now = Date()
-        let view = BoundingBox(region)
         let jobs: [(layer: SpotLayer, tiles: [TileKey], box: BoundingBox)] = layers.compactMap { layer in
             let tiles = cache.missingTiles(covering: view, layer: layer, now: now, maxAge: Self.cacheLifetime)
             guard let box = BoundingBox(covering: tiles) else { return nil }
@@ -86,8 +93,9 @@ final class WaterSpotStore {
 
     // MARK: Disk cache
 
-    // v4: buy water split into three kinds. A new name drops caches in older formats.
-    nonisolated private static let cacheURL = URL.cachesDirectory.appending(path: "water-spots-cache-v4.json")
+    // v5: data from the Oasis backend. A new name drops the Overpass-era cache,
+    // so old tiles do not hide backend data for 7 days.
+    nonisolated private static let cacheURL = URL.cachesDirectory.appending(path: "water-spots-cache-v5.json")
 
     private func loadCache() {
         guard let data = try? Data(contentsOf: Self.cacheURL),

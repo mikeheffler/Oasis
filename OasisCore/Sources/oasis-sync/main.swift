@@ -20,6 +20,12 @@ struct Options {
     var fixture: String?
 }
 
+/// Unbuffered output, so a CI log shows progress while the run is going
+/// (`print` is fully buffered when stdout is not a terminal).
+func say(_ line: String) {
+    FileHandle.standardOutput.write(Data((line + "\n").utf8))
+}
+
 func fail(_ message: String) -> Never {
     FileHandle.standardError.write(Data("error: \(message)\n".utf8))
     exit(2)
@@ -89,7 +95,7 @@ func fetchTile(_ tile: BoundingBox, overpass: URL) async throws -> OverpassRespo
         } catch {
             // 429, 5xx, network errors (not always URLError on Linux), a busy page that is not JSON.
             lastError = error
-            print("  attempt \(attempt + 1) failed: \(error)")
+            say("  attempt \(attempt + 1) failed: \(error)")
         }
     }
     throw lastError!
@@ -139,7 +145,7 @@ if let path = options.fixture {
     do {
         let rows = try OSMSync.rows(from: OverpassResponse.decode(data), syncedAt: runStarted)
         let hidden = rows.filter { $0.kind == nil }.count
-        print("fixture: \(rows.count) rows (\(rows.count - hidden) shown, \(hidden) hidden)")
+        say("fixture: \(rows.count) rows (\(rows.count - hidden) shown, \(hidden) hidden)")
         exit(0)
     } catch {
         fail("fixture: \(error)")
@@ -155,10 +161,18 @@ if !options.dryRun {
     }
     guard let key = env["SUPABASE_SECRET_KEY"], !key.isEmpty else { fail("SUPABASE_SECRET_KEY is not set") }
     supabase = Supabase(base: base, key: key)
+    // Check the key before the slow Overpass work: an empty box in the ocean changes nothing.
+    do {
+        _ = try await supabase!.markRemoved(in: BoundingBox(south: -0.001, west: -0.001, north: 0, east: 0),
+                                             runStarted: "1970-01-01T00:00:00Z")
+        say("Supabase write access: OK.")
+    } catch {
+        fail("Supabase write check failed. Check SUPABASE_URL and SUPABASE_SECRET_KEY (a sb_secret_ key). \(error)")
+    }
 }
 
 let tiles = Array(options.region.tiles().prefix(options.maxTiles))
-print("Region \(options.region.name): \(tiles.count) tiles. Run started \(runStartedText).\(options.dryRun ? " DRY RUN." : "")")
+say("Region \(options.region.name): \(tiles.count) tiles. Run started \(runStartedText).\(options.dryRun ? " DRY RUN." : "")")
 
 var totalRows = 0, totalHidden = 0, totalRemoved = 0
 var failedTiles: [String] = []
@@ -174,13 +188,13 @@ for (i, tile) in tiles.enumerated() {
         }
         let hidden = rows.filter { $0.kind == nil }.count
         totalRows += rows.count; totalHidden += hidden; totalRemoved += removed
-        print("\(label): \(rows.count) rows, \(hidden) hidden, \(removed) marked removed")
+        say("\(label): \(rows.count) rows, \(hidden) hidden, \(removed) marked removed")
     } catch {
         // Keep the old data for this tile. It is tried again on the next run.
         failedTiles.append(label)
-        print("\(label): FAILED, old data kept. \(error)")
+        say("\(label): FAILED, old data kept. \(error)")
     }
 }
 
-print("Done: \(totalRows) rows (\(totalHidden) hidden), \(totalRemoved) marked removed, \(failedTiles.count) failed tiles.")
+say("Done: \(totalRows) rows (\(totalHidden) hidden), \(totalRemoved) marked removed, \(failedTiles.count) failed tiles.")
 exit(failedTiles.isEmpty ? 0 : 1)
