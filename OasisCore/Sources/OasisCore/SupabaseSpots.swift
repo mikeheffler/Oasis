@@ -138,12 +138,17 @@ extension SyncRegion {
 extension SupabaseSpotsAPI {
     /// Reads a Supabase project URL from config text, such as a CI secret.
     /// Accepts "https://<ref>.supabase.co", the same without "https://",
-    /// and a dashboard link ("https://supabase.com/dashboard/project/<ref>/…").
+    /// a bare 20-character project ref, and a dashboard link
+    /// ("https://supabase.com/dashboard/project/<ref>/…").
     /// Trims spaces, line breaks, and a trailing slash. Returns nil for other text.
     public static func projectURL(from text: String) -> URL? {
         var s = text.trimmingCharacters(in: .whitespacesAndNewlines)
         while s.hasSuffix("/") { s.removeLast() }
         guard !s.isEmpty, !s.contains(where: \.isWhitespace) else { return nil }
+        // A bare project ref, such as "scbkoxbdzaipkxwyvrql".
+        if s.count == 20, s.allSatisfy({ $0.isASCII && ($0.isLowercase || $0.isNumber) }) {
+            return URL(string: "https://\(s).supabase.co")
+        }
         if !s.lowercased().hasPrefix("http:"), !s.lowercased().hasPrefix("https:") {
             s = "https://" + s
         }

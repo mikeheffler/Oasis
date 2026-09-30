@@ -168,7 +168,9 @@ if !options.dryRun {
     guard let base = SupabaseSpotsAPI.projectURL(from: raw) else {
         fail("SUPABASE_URL is not a valid project URL. Use https://<ref>.supabase.co")
     }
-    say("Supabase project: \(base.host ?? "?")")
+    // CI hides the secret itself in logs, so print only its form.
+    let host = base.host ?? ""
+    say("Supabase URL: \(base.scheme ?? "?")://…, host ends with .supabase.co: \(host.hasSuffix(".supabase.co")), host length \(host.count)")
     guard let key = env["SUPABASE_SECRET_KEY"], !key.isEmpty else { fail("SUPABASE_SECRET_KEY is not set") }
     supabase = Supabase(base: base, key: key)
     // Check the key before the slow Overpass work: an empty box in the ocean changes nothing.
